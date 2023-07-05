@@ -5,6 +5,7 @@ import os
 import random
 import uuid
 from collections import defaultdict
+import logging
 
 from einops import repeat
 import more_itertools
@@ -37,6 +38,13 @@ from open_flamingo.src.flamingo import Flamingo
 from vqa_metric import compute_vqa_accuracy, postprocess_vqa_generation
 
 from open_flamingo.train.distributed import init_distributed_device, world_info_from_env
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='[%(levelname)s:%(asctime)s:%(name)s:%(filename)s:%(lineno)d]\t %(message)s',
+)
+
+logger = logging.getLogger(__name__)
 
 parser = argparse.ArgumentParser()
 
@@ -383,7 +391,7 @@ def main():
     results = defaultdict(list)
 
     if args.eval_flickr30:
-        print("Evaluating on Flickr30k...")
+        logging.info("Evaluating on Flickr30k...")
         for shot in args.shots:
             scores = []
             for seed, trial in zip(args.trial_seeds, range(args.num_trials)):
@@ -398,17 +406,17 @@ def main():
                     num_beams=3,
                 )
                 if args.rank == 0:
-                    print(f"Shots {shot} Trial {trial} CIDEr score: {cider_score}")
+                    logging.info(f"Shots {shot} Trial {trial} CIDEr score: {cider_score}")
                     scores.append(cider_score)
 
             if args.rank == 0:
-                print(f"Shots {shot} Mean CIDEr score: {np.nanmean(scores)}")
+                logging.info(f"Shots {shot} Mean CIDEr score: {np.nanmean(scores)}")
                 results["flickr30"].append(
                     {"shots": shot, "trials": scores, "mean": np.nanmean(scores)}
                 )
 
     if args.eval_coco:
-        print("Evaluating on COCO...")
+        logging.info("Evaluating on COCO...")
         for shot in args.shots:
             scores = []
             for seed, trial in zip(args.trial_seeds, range(args.num_trials)):
@@ -420,17 +428,17 @@ def main():
                     dataset_name="coco",
                 )
                 if args.rank == 0:
-                    print(f"Shots {shot} Trial {trial} CIDEr score: {cider_score}")
+                    logging.info(f"Shots {shot} Trial {trial} CIDEr score: {cider_score}")
                     scores.append(cider_score)
 
             if args.rank == 0:
-                print(f"Shots {shot} Mean CIDEr score: {np.nanmean(scores)}")
+                logging.info(f"Shots {shot} Mean CIDEr score: {np.nanmean(scores)}")
                 results["coco"].append(
                     {"shots": shot, "trials": scores, "mean": np.nanmean(scores)}
                 )
 
     if args.eval_ok_vqa:
-        print("Evaluating on OK-VQA...")
+        logging.info("Evaluating on OK-VQA...")
         for shot in args.shots:
             scores = []
             for seed, trial in zip(args.trial_seeds, range(args.num_trials)):
@@ -442,17 +450,17 @@ def main():
                     dataset_name="ok_vqa",
                 )
                 if args.rank == 0:
-                    print(f"Shots {shot} Trial {trial} OK-VQA score: {ok_vqa_score}")
+                    logging.info(f"Shots {shot} Trial {trial} OK-VQA score: {ok_vqa_score}")
                     scores.append(ok_vqa_score)
 
             if args.rank == 0:
-                print(f"Shots {shot} Mean OK-VQA score: {np.nanmean(scores)}")
+                logging.info(f"Shots {shot} Mean OK-VQA score: {np.nanmean(scores)}")
                 results["ok_vqa"].append(
                     {"shots": shot, "trials": scores, "mean": np.nanmean(scores)}
                 )
 
     if args.eval_vqav2:
-        print("Evaluating on VQAv2...")
+        logging.info("Evaluating on VQAv2...")
         for shot in args.shots:
             scores = []
             for seed, trial in zip(args.trial_seeds, range(args.num_trials)):
@@ -464,17 +472,17 @@ def main():
                     dataset_name="vqav2",
                 )
                 if args.rank == 0:
-                    print(f"Shots {shot} Trial {trial} VQA score: {vqa_score}")
+                    logging.info(f"Shots {shot} Trial {trial} VQA score: {vqa_score}")
                     scores.append(vqa_score)
 
             if args.rank == 0:
-                print(f"Shots {shot} Mean VQA score: {np.nanmean(scores)}")
+                logging.info(f"Shots {shot} Mean VQA score: {np.nanmean(scores)}")
                 results["vqav2"].append(
                     {"shots": shot, "trials": scores, "mean": np.nanmean(scores)}
                 )
 
     if args.eval_vizwiz:
-        print("Evaluating on VizWiz...")
+        logging.info("Evaluating on VizWiz...")
         for shot in args.shots:
             scores = []
             for seed, trial in zip(args.trial_seeds, range(args.num_trials)):
@@ -486,17 +494,17 @@ def main():
                     dataset_name="vizwiz",
                 )
                 if args.rank == 0:
-                    print(f"Shots {shot} Trial {trial} VizWiz score: {vizwiz_score}")
+                    logging.info(f"Shots {shot} Trial {trial} VizWiz score: {vizwiz_score}")
                     scores.append(vizwiz_score)
 
             if args.rank == 0:
-                print(f"Shots {shot} Mean VizWiz score: {np.nanmean(scores)}")
+                logging.info(f"Shots {shot} Mean VizWiz score: {np.nanmean(scores)}")
                 results["vizwiz"].append(
                     {"shots": shot, "trials": scores, "mean": np.nanmean(scores)}
                 )
 
     if args.eval_textvqa:
-        print("Evaluating on TextVQA...")
+        logging.info("Evaluating on TextVQA...")
         for shot in args.shots:
             scores = []
             for seed, trial in zip(args.trial_seeds, range(args.num_trials)):
@@ -509,17 +517,17 @@ def main():
                     max_generation_length=10,
                 )
                 if args.rank == 0:
-                    print(f"Shots {shot} Trial {trial} TextVQA score: {textvqa_score}")
+                    logging.info(f"Shots {shot} Trial {trial} TextVQA score: {textvqa_score}")
                     scores.append(textvqa_score)
 
             if args.rank == 0:
-                print(f"Shots {shot} Mean TextVQA score: {np.nanmean(scores)}")
+                logging.info(f"Shots {shot} Mean TextVQA score: {np.nanmean(scores)}")
                 results["textvqa"].append(
                     {"shots": shot, "trials": scores, "mean": np.nanmean(scores)}
                 )
 
     if args.eval_vizwiz:
-        print("Evaluating on VizWiz...")
+        logging.info("Evaluating on VizWiz...")
         for shot in args.shots:
             scores = []
             for seed, trial in zip(args.trial_seeds, range(args.num_trials)):
@@ -530,15 +538,15 @@ def main():
                     seed=seed,
                     dataset_name="vizwiz",
                 )
-                print(f"Shots {shot} Trial {trial} VizWiz score: {vizwiz_score}")
+                logging.info(f"Shots {shot} Trial {trial} VizWiz score: {vizwiz_score}")
                 scores.append(vizwiz_score)
-            print(f"Shots {shot} Mean VizWiz score: {np.mean(scores)}")
+            logging.info(f"Shots {shot} Mean VizWiz score: {np.mean(scores)}")
             results["vizwiz"].append(
                 {"shots": shot, "trials": scores, "mean": np.mean(scores)}
             )
 
     if args.eval_textvqa:
-        print("Evaluating on TextVQA...")
+        logging.info("Evaluating on TextVQA...")
         for shot in args.shots:
             scores = []
             for seed, trial in zip(args.trial_seeds, range(args.num_trials)):
@@ -549,15 +557,15 @@ def main():
                     seed=seed,
                     dataset_name="textvqa",
                 )
-                print(f"Shots {shot} Trial {trial} TextVQA score: {textvqa_score}")
+                logging.info(f"Shots {shot} Trial {trial} TextVQA score: {textvqa_score}")
                 scores.append(textvqa_score)
-            print(f"Shots {shot} Mean TextVQA score: {np.mean(scores)}")
+            logging.info(f"Shots {shot} Mean TextVQA score: {np.mean(scores)}")
             results["textvqa"].append(
                 {"shots": shot, "trials": scores, "mean": np.mean(scores)}
             )
 
     if args.eval_imagenet:
-        print("Evaluating on ImageNet...")
+        logging.info("Evaluating on ImageNet...")
         for shot in args.shots:
             scores = []
             for seed, trial in zip(args.trial_seeds, range(args.num_trials)):
@@ -570,20 +578,20 @@ def main():
                     dataset_name="imagenet",
                 )
                 if args.rank == 0:
-                    print(
+                    logging.info(
                         f"Shots {shot} Trial {trial} "
                         f"ImageNet score: {imagenet_score}"
                     )
                     scores.append(imagenet_score)
 
             if args.rank == 0:
-                print(f"Shots {shot} Mean ImageNet score: {np.nanmean(scores)}")
+                logging.info(f"Shots {shot} Mean ImageNet score: {np.nanmean(scores)}")
                 results["imagenet"].append(
                     {"shots": shot, "trials": scores, "mean": np.nanmean(scores)}
                 )
 
     if args.eval_hateful_memes:
-        print("Evaluating on Hateful Memes...")
+        logging.info("Evaluating on Hateful Memes...")
         for shot in args.shots:
             scores = []
             for seed, trial in zip(args.trial_seeds, range(args.num_trials)):
@@ -596,14 +604,14 @@ def main():
                     dataset_name="hateful_memes",
                 )
                 if args.rank == 0:
-                    print(
+                    logging.info(
                         f"Shots {shot} Trial {trial} "
                         f"Hateful Memes score: {hateful_memes_score}"
                     )
                     scores.append(hateful_memes_score)
 
             if args.rank == 0:
-                print(f"Shots {shot} Mean Hateful Memes score: {np.nanmean(scores)}")
+                logging.info(f"Shots {shot} Mean Hateful Memes score: {np.nanmean(scores)}")
                 results["hateful_memes"].append(
                     {"shots": shot, "trials": scores, "mean": np.nanmean(scores)}
                 )
@@ -636,6 +644,10 @@ def get_query_set(train_dataset, query_set_size, seed):
 def prepare_eval_samples(test_dataset, num_samples, batch_size, seed):
     np.random.seed(seed)
     random_indices = np.random.choice(len(test_dataset), num_samples, replace=False)
+    logger.info(f"Original test dataset length {len(test_dataset)}")
+    logger.info(f"num_samples for evaluation: {num_samples}")
+    logger.info(f"Using {len(random_indices)} samples for evaluation")
+
     dataset = torch.utils.data.Subset(test_dataset, random_indices)
     sampler = torch.utils.data.distributed.DistributedSampler(dataset)
     loader = torch.utils.data.DataLoader(
@@ -690,6 +702,7 @@ def evaluate_captioning(
         float: CIDEr score
 
     """
+    logger.info(f"Evaluating Caption Task on {dataset_name}...")
 
     if dataset_name == "coco":
         image_train_dir_path = args.coco_train_image_dir_path
@@ -720,7 +733,9 @@ def evaluate_captioning(
         dataset_name=dataset_name,
     )
 
+    # num_shots should > 0, otherwise, it will be set to 2
     effective_num_shots = compute_effective_num_shots(num_shots, args.model)
+    logger.info(f"Effective number of shots: {effective_num_shots}")
 
     test_dataloader = prepare_eval_samples(
         test_dataset,
@@ -797,7 +812,7 @@ def evaluate_captioning(
     }  # merge dicts
 
     # save the predictions to a temporary file
-    results_path = f"{dataset_name}results_{uuid.uuid4()}.json"
+    results_path = f"{dataset_name}results_{uuid.uuid4()}_num_shots_{num_shots}.json"
 
     with open(results_path, "w") as f:
         f.write(
@@ -818,7 +833,7 @@ def evaluate_captioning(
     )
 
     # delete the temporary file
-    os.remove(results_path)
+    # os.remove(results_path)
 
     return metrics["CIDEr"] * 100.0
 
@@ -979,21 +994,22 @@ def evaluate_vqa(
 
     # save the predictions to a temporary file
     random_uuid = str(uuid.uuid4())
-    with open(f"{dataset_name}results_{random_uuid}.json", "w") as f:
+    result_file = f"{dataset_name}results_{random_uuid}_shots_{num_shots}.json"
+    with open(result_file, "w") as f:
         f.write(json.dumps(all_predictions, indent=4))
 
     if test_annotations_json_path is not None:
         acc = compute_vqa_accuracy(
-            f"{dataset_name}results_{random_uuid}.json",
+            result_file,
             test_questions_json_path,
             test_annotations_json_path,
         )
         # delete the temporary file
-        os.remove(f"{dataset_name}results_{random_uuid}.json")
+        # os.remove(f"{dataset_name}results_{random_uuid}.json")
 
     else:
-        print("No annotations provided, skipping accuracy computation.")
-        print("Temporary file saved to:", f"{dataset_name}results_{random_uuid}.json")
+        logging.info("No annotations provided, skipping accuracy computation.")
+        logging.info("Temporary file saved to:", f"{dataset_name}results_{random_uuid}.json")
         acc = None
 
     return acc
