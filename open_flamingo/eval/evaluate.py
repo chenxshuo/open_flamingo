@@ -659,7 +659,8 @@ def prepare_eval_samples(test_dataset, num_samples, batch_size, seed):
     return loader
 
 
-def sample_batch_demos_from_query_set(query_set, num_samples, batch_size):
+def sample_batch_demos_from_query_set(query_set, num_samples, batch_size, seed):
+    random.seed(seed)
     return [random.sample(query_set, num_samples) for _ in range(batch_size)]
 
 
@@ -757,7 +758,7 @@ def evaluate_captioning(
         disable=args.rank != 0,
     ):
         batch_demo_samples = sample_batch_demos_from_query_set(
-            in_context_samples, effective_num_shots, len(batch["image"])
+            in_context_samples, effective_num_shots, len(batch["image"]), seed + args.rank
         )
 
         batch_images = []
@@ -933,7 +934,7 @@ def evaluate_vqa(
         disable=args.rank != 0,
     ):
         batch_demo_samples = sample_batch_demos_from_query_set(
-            in_context_samples, effective_num_shots, len(batch["image"])
+            in_context_samples, effective_num_shots, len(batch["image"]), seed + args.rank
         )
 
         batch_images = []
