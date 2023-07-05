@@ -3,7 +3,10 @@ import argparse
 from typing import List
 from torch.nn.parallel import DistributedDataParallel as DDP
 from PIL import Image
+import torch
+import logging
 
+logger = logging.getLogger(__name__)
 
 class BaseEvalModel(abc.ABC):
     """Base class encapsulating functionality needed to evaluate a model."""
@@ -17,14 +20,23 @@ class BaseEvalModel(abc.ABC):
                 is non-empty.
         """
 
+
+    def force_cudnn_initialization(self, device):
+        s = 32
+        dev = torch.device(device)
+        torch.nn.functional.conv2d(torch.zeros(s, s, s, s, device=dev), torch.zeros(s, s, s, s, device=dev))
+
     def init_distributed(self):
         """Wrap model as DDP."""
         self.model = DDP(self.model, device_ids=[self.device])
+        logger.info(f"Wrapped model as DDP on device {self.device}")
 
     def set_device(self, device):
         """Set device for model."""
         self.device = device
         self.model = self.model.to(device)
+        logger.info(f"Set device to {device}")
+        self.force_cudnn_initialization(self.device)
 
     def get_outputs(
         self,
