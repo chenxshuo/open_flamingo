@@ -4,21 +4,28 @@ BASE_DATA_PATH="/dss/dssmcmlfs01/pn34sa/pn34sa-dss-0000/robustness/VL_adapter/da
 COCO_IMG_TRAIN_PATH="${BASE_DATA_PATH}/train2014/train2014"
 COCO_IMG_VAL_PATH="${BASE_DATA_PATH}/val2014"
 COCO_ANNO_PATH="${BASE_DATA_PATH}/annotations-2014/captions_val2014.json"
-#COCO_KARPATHY_PATH="${BASE_DATA_PATH}/dataset_coco.json"
-COCO_KARPATHY_PATH="/dss/dssmcmlfs01/pn34sa/pn34sa-dss-0000/robustness/in-context-open-flamingo/open_flamingo_2-0/open_flamingo/scripts/subset_dataset_coco.json"
+COCO_KARPATHY_PATH="${BASE_DATA_PATH}/dataset_coco.json"
+
+VQAV2_IMG_TRAIN_PATH="${BASE_DATA_PATH}/train2014/train2014"
+VQAV2_ANNO_TRAIN_PATH="${BASE_DATA_PATH}/v2_mscoco_train2014_annotations.json"
+VQAV2_QUESTION_TRAIN_PATH="${BASE_DATA_PATH}/v2_OpenEnded_mscoco_train2014_questions.json"
+VQAV2_IMG_TEST_PATH="${BASE_DATA_PATH}/val2014"
+VQAV2_ANNO_TEST_PATH="${BASE_DATA_PATH}/v2_mscoco_val2014_annotations.json"
+VQAV2_QUESTION_TEST_PATH="${BASE_DATA_PATH}/v2_OpenEnded_mscoco_val2014_questions.json"
+
 
 # 9B
-#CKPT_PATH="/dss/dsshome1/00/di93zun/.cache/huggingface/hub/models--openflamingo--OpenFlamingo-9B-vitl-mpt7b/snapshots/e6e175603712c7007fe3b9c0d50bdcfbd83adfc2/checkpoint.pt"
+#CKPT_PATH="/dss/dssmcmlfs01/pn34sa/pn34sa-dss-0000/.cache/huggingface/hub/models--openflamingo--OpenFlamingo-9B-vitl-mpt7b/snapshots/e6e175603712c7007fe3b9c0d50bdcfbd83adfc2/checkpoint.pt"
 #LM_MODEL="anas-awadalla/mpt-7b"
 # 4B
 CKPT_PATH="/dss/dssmcmlfs01/pn34sa/pn34sa-dss-0000/.cache/huggingface/hub/models--openflamingo--OpenFlamingo-4B-vitl-rpj3b-langinstruct/snapshots/ef1d867b2bdf3e0ffec6d9870a07e6bd51eb7e88/checkpoint.pt"
 LM_MODEL="togethercomputer/RedPajama-INCITE-Instruct-3B-v1"
 CROSS_ATTN_EVERY_N_LAYERS=2
 
-export CUDA_VISIBLE_DEVICES=0
+export CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7
 NUM_GPUs=`echo $CUDA_VISIBLE_DEVICES | grep -P -o '\d' | wc -l`
 TIMESTAMP=`date +"%Y-%m-%d-%T"`
-COMMENT="debug_randomness"
+COMMENT="4B-hateful_memes-debug-random"
 RESULTS_FILE="results_${TIMESTAMP}_${COMMENT}.json"
 torchrun --nnodes=1 --nproc_per_node="$NUM_GPUs" open_flamingo/eval/evaluate.py \
     --vision_encoder_path ViT-L-14 \
@@ -29,28 +36,25 @@ torchrun --nnodes=1 --nproc_per_node="$NUM_GPUs" open_flamingo/eval/evaluate.py 
     --checkpoint_path ${CKPT_PATH} \
     --results_file ${RESULTS_FILE} \
     --precision amp_bf16 \
-    --batch_size 4 \
-    --eval_coco \
-    --coco_train_image_dir_path ${COCO_IMG_TRAIN_PATH} \
-    --coco_val_image_dir_path ${COCO_IMG_VAL_PATH} \
-    --coco_karpathy_json_path ${COCO_KARPATHY_PATH} \
-    --coco_annotations_json_path ${COCO_ANNO_PATH} \
-    --query_set_size 8 \
-    --shots 4 \
+    --batch_size 2 \
+    --num_trials 1 \
+    --shots 0 \
+    --trial_seeds 42 \
+    --eval_hateful_memes \
+    --hateful_memes_image_dir_path "/dss/dssmcmlfs01/pn34sa/pn34sa-dss-0000/robustness/datasets/hateful_memes/img" \
+    --hateful_memes_train_annotations_json_path "/dss/dssmcmlfs01/pn34sa/pn34sa-dss-0000/robustness/datasets/hateful_memes/train.jsonl" \
+    --hateful_memes_test_annotations_json_path "/dss/dssmcmlfs01/pn34sa/pn34sa-dss-0000/robustness/datasets/hateful_memes/dev.jsonl"
 
-#    --eval_vqav2 \
-#    --vqav2_train_image_dir_path ${VQAV2_IMG_TRAIN_PATH} \
-#    --vqav2_train_annotations_json_path ${VQAV2_ANNO_TRAIN_PATH} \
-#    --vqav2_train_questions_json_path ${VQAV2_QUESTION_TRAIN_PATH} \
-#    --vqav2_test_image_dir_path ${VQAV2_IMG_TEST_PATH} \
-#    --vqav2_test_annotations_json_path ${VQAV2_ANNO_TEST_PATH} \
-#    --vqav2_test_questions_json_path ${VQAV2_QUESTION_TEST_PATH}
+#--do_task_recognition \
+# --eval_coco \
+
+# --shots 16 32 \
 
 #--eval_flickr30 \
 #--eval_ok_vqa \
 #--eval_textvqa \
 #--eval_vizwiz \
-#--eval_hateful_memes \
+
 
 #--flickr_image_dir_path "/path/to/flickr30k/flickr30k-images" \
 #--flickr_karpathy_json_path "/path/to/flickr30k/dataset_flickr30k.json" \
@@ -72,7 +76,4 @@ torchrun --nnodes=1 --nproc_per_node="$NUM_GPUs" open_flamingo/eval/evaluate.py 
 #--vizwiz_train_annotations_json_path "/path/to/v7w/train_annotations_vqa_format.json" \
 #--vizwiz_test_questions_json_path "/path/to/v7w/val_questions_vqa_format.json" \
 #--vizwiz_test_annotations_json_path "/path/to/v7w/val_annotations_vqa_format.json" \
-#--hateful_memes_image_dir_path "/path/to/hateful_memes/img" \
-#--hateful_memes_train_annotations_json_path "/path/to/hateful_memes/train.json" \
-#--hateful_memes_test_annotations_json_path "/path/to/hateful_memes/dev.json" \
 
