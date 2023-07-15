@@ -1,5 +1,6 @@
 import json
 import os
+import random
 
 from PIL import Image
 from torch.utils.data import Dataset
@@ -64,12 +65,43 @@ class CaptionDataset(Dataset):
         }
 
 
+class CaptionDatasetTR(CaptionDataset):
+    def __init__(self, seed, **kwargs):
+        super().__init__(**kwargs)
+        random.seed(seed)
+        self.label_space = []
+        self.init_label_space()
+
+    def init_label_space(self):
+        """
+        Initialize the label space of the dataset.
+        """
+        self.label_space = set(self.label_space)
+        for annotation in self.annotations:
+            caption = annotation["sentences"][0]["raw"]
+            self.label_space.add(caption)
+        self.label_space = list(self.label_space)
+        with open("label_space_caption.txt", "w") as f:
+            for label in self.label_space:
+                f.write(label + "\n")
+
+    def __getitem__(self, idx):
+        results = super().__getitem__(idx)
+        results["caption"] = random.choice(self.label_space)
+        return results
+
+
 class VQADataset(Dataset):
     def __init__(
         self, image_dir_path, question_path, annotations_path, is_train, dataset_name
     ):
+        # self.questions =
+        # [{"image_id": 26148, "question_id": 262148000, "question": "Where is he looking?"}]
         self.questions = json.load(open(question_path, "r"))["questions"]
         if annotations_path is not None:
+            # self.answers =
+            # [{"question_type":"none of the above", "multiple_choice_answer":"down",
+            # "answers":[{"answer":"down", "answer_confidence":"yes", "answer_id":1}]
             self.answers = json.load(open(annotations_path, "r"))["annotations"]
         else:
             self.answers = None
@@ -111,6 +143,48 @@ class VQADataset(Dataset):
         if self.answers is not None:
             answers = self.answers[idx]
             results["answers"] = [a["answer"] for a in answers["answers"]]
+        # results =
+        # {"image": image,
+        #  "question": "Where is he looking",
+        #  "question_id": 262148000,
+        #  "answers": ["down"]
+        #  }
+        return results
+
+
+class VQADatasetTR(VQADataset):
+    def __init__(self, seed, **kwargs):
+        super().__init__(**kwargs)
+        random.seed(seed)
+        self.label_space = []
+        self.init_label_space()
+
+    def init_label_space(self):
+        """
+        Initialize the label space of the dataset.
+        """
+        self.label_space = set(self.label_space)
+        for answers in self.answers:
+            ans = [a["answer"] for a in answers["answers"]]
+            for a in ans:
+                self.label_space.add(a)
+        self.label_space = list(self.label_space)
+        with open("label_space_vqa.txt", "w") as f:
+            f.write("\n".join(self.label_space))
+
+    def __getitem__(self, idx):
+        results = super().__getitem__(idx)
+        ori_answers = results["answers"]
+        random_answers = []
+        for _ in ori_answers:
+            random_answers.append(random.choice(self.label_space))
+        results["answers"] = random_answers
+        # results =
+        # {"image": image,
+        #  "question": "Where is he looking",
+        #  "question_id": 262148000,
+        #  "answers": ["down"]
+        #  }
         return results
 
 
@@ -152,3 +226,20 @@ class HatefulMemesDataset(Dataset):
             "class_name": "yes" if annotation["label"] == 1 else "no",
             "class_id": annotation["label"],
         }
+
+
+class HatefulMemesDatasetTR(HatefulMemesDataset):
+    def __init__(self, seed, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        random.seed(seed)
+        self.label_space = [0, 1]
+
+    def __getitem__(self, item):
+        result = super().__getitem__(item)
+        ori_class = result["class_id"]
+        flipped = 1 - ori_class
+        # rand_class = random.choice(self.label_space)
+        result["class_id"] = flipped
+        result["class_name"] = "yes" if flipped == 1 else "no",
+        return result
+
