@@ -16,14 +16,15 @@ from sklearn.metrics import roc_auc_score
 from coco_metric import compute_cider, postprocess_captioning_generation
 from eval_datasets import (
     CaptionDataset,
+    CaptionDatasetTR,
+    VQADatasetTR,
     VQADataset,
     ImageNetDataset,
     HatefulMemesDataset,
+    HatefulMemesDatasetTR
 )
 from tqdm import tqdm
 
-
-from eval_datasets import VQADataset, ImageNetDataset
 from classification_utils import (
     IMAGENET_CLASSNAMES,
     IMAGENET_1K_CLASS_ID_TO_LABEL,
@@ -47,6 +48,13 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 parser = argparse.ArgumentParser()
+
+parser.add_argument(
+    "--do_task_recognition",
+    action="store_true",
+    default=False,
+    help="Whether to do task recognition study.",
+)
 
 parser.add_argument(
     "--model",
@@ -426,6 +434,7 @@ def main():
                     num_shots=shot,
                     seed=seed,
                     dataset_name="coco",
+                    do_task_recognition=args.do_task_recognition,
                 )
                 if args.rank == 0:
                     logging.info(f"Shots {shot} Trial {trial} CIDEr score: {cider_score}")
@@ -448,6 +457,7 @@ def main():
                     num_shots=shot,
                     seed=seed,
                     dataset_name="ok_vqa",
+                    do_task_recognition=args.do_task_recognition,
                 )
                 if args.rank == 0:
                     logging.info(f"Shots {shot} Trial {trial} OK-VQA score: {ok_vqa_score}")
@@ -461,6 +471,7 @@ def main():
 
     if args.eval_vqav2:
         logging.info("Evaluating on VQAv2...")
+        logger.info(f"Do task recognition: {args.do_task_recognition}")
         for shot in args.shots:
             scores = []
             for seed, trial in zip(args.trial_seeds, range(args.num_trials)):
@@ -470,6 +481,7 @@ def main():
                     num_shots=shot,
                     seed=seed,
                     dataset_name="vqav2",
+                    do_task_recognition=args.do_task_recognition,
                 )
                 if args.rank == 0:
                     logging.info(f"Shots {shot} Trial {trial} VQA score: {vqa_score}")
@@ -576,6 +588,7 @@ def main():
                     seed=seed,
                     no_kv_caching=args.no_caching_for_classification,
                     dataset_name="imagenet",
+                    do_task_recognition=args.do_task_recognition,
                 )
                 if args.rank == 0:
                     logging.info(
@@ -602,6 +615,7 @@ def main():
                     seed=seed,
                     no_kv_caching=args.no_caching_for_classification,
                     dataset_name="hateful_memes",
+                    do_task_recognition=args.do_task_recognition,
                 )
                 if args.rank == 0:
                     logging.info(
@@ -687,6 +701,7 @@ def evaluate_captioning(
     length_penalty: float = -2.0,
     num_shots: int = 8,
     dataset_name: str = "coco",
+    do_task_recognition: bool = False,
 ):
     """Evaluate a model on COCO dataset.
 
@@ -718,13 +733,23 @@ def evaluate_captioning(
     else:
         raise ValueError(f"Unsupported dataset: {dataset_name}")
 
-    train_dataset = CaptionDataset(
-        image_train_dir_path=image_train_dir_path,
-        image_val_dir_path=image_val_dir_path,
-        annotations_path=annotations_path,
-        is_train=True,
-        dataset_name=dataset_name if dataset_name != "nocaps" else "coco",
-    )
+    if do_task_recognition:
+        train_dataset = CaptionDatasetTR(
+            seed=seed,
+            image_train_dir_path=image_train_dir_path,
+            image_val_dir_path=image_val_dir_path,
+            annotations_path=annotations_path,
+            is_train=True,
+            dataset_name=dataset_name if dataset_name != "nocaps" else "coco",
+        )
+    else:
+        train_dataset = CaptionDataset(
+            image_train_dir_path=image_train_dir_path,
+            image_val_dir_path=image_val_dir_path,
+            annotations_path=annotations_path,
+            is_train=True,
+            dataset_name=dataset_name if dataset_name != "nocaps" else "coco",
+        )
 
     test_dataset = CaptionDataset(
         image_train_dir_path=image_train_dir_path,
@@ -752,6 +777,7 @@ def evaluate_captioning(
     np.random.seed(
         seed + args.rank
     )  # make sure each worker has a different seed for the random context samples
+    random.seed(seed + args.rank)
     for batch in tqdm(
         test_dataloader,
         desc=f"Running inference {dataset_name.upper()}",
@@ -776,7 +802,8 @@ def evaluate_captioning(
                     for x in batch_demo_samples[i]
                 ]
             )
-
+            # logger.critical(f"context_text: {context_text} do task recognition: {do_task_recognition}")
+            # assert False
             # Keep the text but remove the image tags for the zero-shot case
             if num_shots == 0:
                 context_text = context_text.replace("<image>", "")
@@ -849,6 +876,7 @@ def evaluate_vqa(
     length_penalty: float = 0.0,
     num_shots: int = 8,
     dataset_name: str = "vqav2",
+    do_task_recognition: bool = False,
 ):
     """
     Evaluate a model on VQA datasets. Currently supports VQA v2.0, OK-VQA, VizWiz and TextVQA.
@@ -862,6 +890,7 @@ def evaluate_vqa(
         length_penalty (float, optional): length penalty for beam search. Defaults to -2.0.
         num_shots (int, optional): number of shots to use. Defaults to 8.
         dataset_name (string): type of vqa dataset: currently supports vqav2, ok_vqa. Defaults to vqav2.
+        do_task_recognition (bool, optional): whether to do task recognition. Defaults to False.
     Returns:
         float: accuracy score
     """
@@ -896,14 +925,24 @@ def evaluate_vqa(
         test_annotations_json_path = args.textvqa_test_annotations_json_path
     else:
         raise ValueError(f"Unsupported dataset: {dataset_name}")
-
-    train_dataset = VQADataset(
-        image_dir_path=train_image_dir_path,
-        question_path=train_questions_json_path,
-        annotations_path=train_annotations_json_path,
-        is_train=True,
-        dataset_name=dataset_name,
-    )
+    if do_task_recognition:
+        logger.info(f"Using task recognition for {dataset_name}")
+        train_dataset = VQADatasetTR(
+            seed=seed,
+            image_dir_path=train_image_dir_path,
+            question_path=train_questions_json_path,
+            annotations_path=train_annotations_json_path,
+            is_train=True,
+            dataset_name=dataset_name,
+        )
+    else:
+        train_dataset = VQADataset(
+            image_dir_path=train_image_dir_path,
+            question_path=train_questions_json_path,
+            annotations_path=train_annotations_json_path,
+            is_train=True,
+            dataset_name=dataset_name,
+        )
 
     test_dataset = VQADataset(
         image_dir_path=test_image_dir_path,
@@ -928,6 +967,7 @@ def evaluate_vqa(
     np.random.seed(
         seed + args.rank
     )  # make sure each worker has a different seed for the random context samples
+    random.seed(seed + args.rank)
     for batch in tqdm(
         test_dataloader,
         desc=f"Running inference {dataset_name}",
@@ -954,6 +994,8 @@ def evaluate_vqa(
                     for x in batch_demo_samples[i]
                 ]
             )
+            # logger.critical(f"Context text: {context_text}")
+            # assert False
 
             # Keep the text but remove the image tags for the zero-shot case
             if num_shots == 0:
@@ -962,7 +1004,7 @@ def evaluate_vqa(
             batch_text.append(
                 context_text + eval_model.get_vqa_prompt(question=batch["question"][i])
             )
-
+        # logger.critical(f"Batch text: {batch_text}")
         outputs = eval_model.get_outputs(
             batch_images=batch_images,
             batch_text=batch_text,
@@ -971,6 +1013,7 @@ def evaluate_vqa(
             num_beams=num_beams,
             length_penalty=length_penalty,
         )
+        # logger.critical(f"Outputs: {outputs}")
 
         process_function = (
             postprocess_ok_vqa_generation
@@ -982,6 +1025,8 @@ def evaluate_vqa(
 
         for new_prediction, sample_id in zip(new_predictions, batch["question_id"]):
             predictions.append({"answer": new_prediction, "question_id": sample_id})
+        # logger.critical(f"Predictions: {predictions}")
+        # assert False
 
     # all gather
     all_predictions = [None] * args.world_size
@@ -1023,6 +1068,7 @@ def evaluate_classification(
     num_shots: int = 8,
     no_kv_caching=False,
     dataset_name: str = "imagenet",
+    do_task_recognition=False,
 ):
     """
     Evaluate a model on classification dataset.
@@ -1047,13 +1093,24 @@ def evaluate_classification(
     model, tokenizer = eval_model.model, eval_model.tokenizer
 
     if dataset_name == "imagenet":
-        train_dataset = ImageNetDataset(os.path.join(args.imagenet_root, "train"))
+        if do_task_recognition:
+            raise NotImplementedError("Task recognition is not yet supported for ImageNet")
+        else:
+            train_dataset = ImageNetDataset(os.path.join(args.imagenet_root, "train"))
         test_dataset = ImageNetDataset(os.path.join(args.imagenet_root, "val"))
     elif dataset_name == "hateful_memes":
-        train_dataset = HatefulMemesDataset(
-            args.hateful_memes_image_dir_path,
-            args.hateful_memes_train_annotations_json_path,
-        )
+        if do_task_recognition:
+            logger.critical("Task recognition for Hateful Memes")
+            train_dataset = HatefulMemesDatasetTR(
+                seed,
+                args.hateful_memes_image_dir_path,
+                args.hateful_memes_train_annotations_json_path,
+            )
+        else:
+            train_dataset = HatefulMemesDataset(
+                args.hateful_memes_image_dir_path,
+                args.hateful_memes_train_annotations_json_path,
+            )
         test_dataset = HatefulMemesDataset(
             args.hateful_memes_image_dir_path,
             args.hateful_memes_test_annotations_json_path,
@@ -1083,6 +1140,7 @@ def evaluate_classification(
     np.random.seed(
         seed + args.rank
     )  # make sure each worker has a different seed for the random context samples
+    random.seed(seed + args.rank)
     for batch_idx, batch in tqdm(
         enumerate(test_dataloader),
         desc=f"Running inference {dataset_name}",
