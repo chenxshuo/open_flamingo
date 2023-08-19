@@ -1165,10 +1165,9 @@ def evaluate_vqa(
         disable=args.rank != 0,
     ):
 
-
         batch_images, batch_text = prepare_vqa_batch(
             batch=batch,
-            in_context_samples=in_context_samples,
+            query_set=query_set,
             dataset=train_dataset,
             coco=coco,
             eval_model=eval_model,
@@ -1179,6 +1178,7 @@ def evaluate_vqa(
             visual_demo_mode=visual_demo_mode,
             jpeg_train_to_info=jpeg_train_to_info,
             jpeg_val_to_info=jpeg_val_to_info,
+            rices_dataset=rices_dataset if args.rices else None,
         )
         outputs = eval_model.get_outputs(
             batch_images=batch_images,
@@ -1269,7 +1269,7 @@ def evaluate_vqa(
 
 def prepare_vqa_batch(
         batch,
-        in_context_samples,
+        query_set,
         dataset,
         coco,
         eval_model,
@@ -1280,6 +1280,7 @@ def prepare_vqa_batch(
         visual_demo_mode,
         jpeg_train_to_info,
         jpeg_val_to_info,
+        rices_dataset
 ):
     assert visual_demo_mode in ["random", "same_category"], (
         f"Unsupported visual demo mode: {visual_demo_mode}"
