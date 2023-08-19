@@ -2,19 +2,20 @@ import argparse
 import importlib
 import json
 import os
-import random
 import uuid
+import random
 from collections import defaultdict
 import logging
 from PIL import Image
 
 
-from einops import repeat
-import more_itertools
 import numpy as np
 import torch
 from sklearn.metrics import roc_auc_score
 from pycocotools.coco import COCO
+import utils
+import math
+
 from coco_metric import compute_cider, postprocess_captioning_generation
 from eval_datasets import (
     CaptionDataset,
@@ -25,13 +26,14 @@ from eval_datasets import (
     HatefulMemesDataset,
     HatefulMemesDatasetTR
 )
+from rices import RICES
 from tqdm import tqdm
 
+
+from eval_datasets import VQADataset, ImageNetDataset
 from classification_utils import (
     IMAGENET_CLASSNAMES,
-    IMAGENET_1K_CLASS_ID_TO_LABEL,
     HM_CLASSNAMES,
-    HM_CLASS_ID_TO_LABEL,
 )
 
 from eval_model import BaseEvalModel
@@ -128,7 +130,34 @@ parser.add_argument("--batch_size", type=int, default=8)
 parser.add_argument(
     "--no_caching_for_classification",
     action="store_true",
-    help="Use key-value caching for classification evals to speed it up. Currently this doesn't underperforms for MPT models.",
+    help="Whether to skip using key-value caching for classification evals, which usually speeds it up.",
+)
+parser.add_argument(
+    "--classification_prompt_ensembling",
+    action="store_true",
+    help="Whether to use prompt ensembling (average log-likelihoods over permutations of in-context examples)",
+)
+parser.add_argument(
+    "--rices",
+    action="store_true",
+    help="Whether to use RICES for evaluation. If False, uses random demonstrations.",
+)
+parser.add_argument(
+    "--rices_vision_encoder_path",
+    default="ViT-L-14",
+    type=str,
+    help="CLIP vision encoder to use for RICES if cached_demonstration_features is None.",
+)
+parser.add_argument(
+    "--rices_vision_encoder_pretrained",
+    default="openai",
+    type=str,
+    help="CLIP vision encoder to use for RICES if cached_demonstration_features is None.",
+)
+parser.add_argument(
+    "--cached_demonstration_features",
+    default=None,
+    help="Directory where rices features for all choices of in-context examples are stored as a pkl file with the dataset name. If None, features are re-computed by script.",
 )
 
 # Per-dataset evaluation flags
@@ -252,6 +281,12 @@ parser.add_argument(
 parser.add_argument(
     "--vqav2_test_annotations_json_path",
     type=str,
+    default=None,
+)
+parser.add_argument(
+    "--vqav2_final_test_questions_json_path",
+    type=str,
+    help="Path to the v2_OpenEnded_mscoco_test2015_questions.json file containing all test questions. This is required to format the predictions for EvalAI.",
     default=None,
 )
 
@@ -432,6 +467,16 @@ def main():
 
     if args.eval_flickr30:
         logging.info("Evaluating on Flickr30k...")
+        print("Evaluating on Flickr30k...")
+
+        # load cached demonstration features for RICES
+        if args.cached_demonstration_features is not None:
+            cached_features = torch.load(
+                f"{args.cached_demonstration_features}/flickr30.pkl", map_location="cpu"
+            )
+        else:
+            cached_features = None
+
         for shot in args.shots:
             scores = []
             for seed, trial in zip(args.trial_seeds, range(args.num_trials)):
@@ -441,9 +486,7 @@ def main():
                     num_shots=shot,
                     seed=seed,
                     dataset_name="flickr",
-                    min_generation_length=0,
-                    max_generation_length=20,
-                    num_beams=3,
+                    cached_features=cached_features,
                 )
                 if args.rank == 0:
                     logging.info(f"Shots {shot} Trial {trial} CIDEr score: {cider_score}")
@@ -452,11 +495,24 @@ def main():
             if args.rank == 0:
                 logging.info(f"Shots {shot} Mean CIDEr score: {np.nanmean(scores)}")
                 results["flickr30"].append(
-                    {"shots": shot, "trials": scores, "mean": np.nanmean(scores)}
+                    {
+                        "shots": shot,
+                        "trials": scores,
+                        "mean": np.nanmean(scores),
+                        "stddev": np.nanstd(scores),
+                    }
                 )
 
     if args.eval_coco:
         logging.info("Evaluating on COCO...")
+        # load cached demonstration features for RICES
+        if args.cached_demonstration_features is not None:
+            cached_features = torch.load(
+                f"{args.cached_demonstration_features}/coco.pkl", map_location="cpu"
+            )
+        else:
+            cached_features = None
+
         for shot in args.shots:
             scores = []
             for seed, trial in zip(args.trial_seeds, range(args.num_trials)):
@@ -466,6 +522,7 @@ def main():
                     num_shots=shot,
                     seed=seed,
                     dataset_name="coco",
+                    cached_features=cached_features,
                     demo_mode=args.demo_mode,
                 )
                 if args.rank == 0:
@@ -475,11 +532,26 @@ def main():
             if args.rank == 0:
                 logging.info(f"Shots {shot} Mean CIDEr score: {np.nanmean(scores)}")
                 results["coco"].append(
-                    {"shots": shot, "trials": scores, "mean": np.nanmean(scores)}
+                    {
+                        "shots": shot,
+                        "trials": scores,
+                        "mean": np.nanmean(scores),
+                        "stddev": np.nanstd(scores),
+                    }
                 )
 
     if args.eval_ok_vqa:
         logging.info("Evaluating on OK-VQA...")
+        print("Evaluating on OK-VQA...")
+
+        # load cached demonstration features for RICES
+        if args.cached_demonstration_features is not None:
+            cached_features = torch.load(
+                f"{args.cached_demonstration_features}/ok_vqa.pkl", map_location="cpu"
+            )
+        else:
+            cached_features = None
+
         for shot in args.shots:
             scores = []
             for seed, trial in zip(args.trial_seeds, range(args.num_trials)):
@@ -490,6 +562,7 @@ def main():
                     seed=seed,
                     dataset_name="ok_vqa",
                     demo_mode=args.demo_mode,
+                    cached_features=cached_features,
                 )
                 if args.rank == 0:
                     logging.info(f"Shots {shot} Trial {trial} OK-VQA score: {ok_vqa_score}")
@@ -498,13 +571,26 @@ def main():
             if args.rank == 0:
                 logging.info(f"Shots {shot} Mean OK-VQA score: {np.nanmean(scores)}")
                 results["ok_vqa"].append(
-                    {"shots": shot, "trials": scores, "mean": np.nanmean(scores)}
+                    {
+                        "shots": shot,
+                        "trials": scores,
+                        "mean": np.nanmean(scores),
+                        "stddev": np.nanstd(scores),
+                    }
                 )
 
     if args.eval_vqav2:
         logging.info("Evaluating on VQAv2...")
         logger.info(f"Demonstration Mode: {args.demo_mode}")
         logger.info(f"Visual Demonstration Mode: {args.visual_demo_mode}")
+        # load cached demonstration features for RICES
+        if args.cached_demonstration_features is not None:
+            cached_features = torch.load(
+                f"{args.cached_demonstration_features}/vqav2.pkl", map_location="cpu"
+            )
+        else:
+            cached_features = None
+
         for shot in args.shots:
             scores = []
             for seed, trial in zip(args.trial_seeds, range(args.num_trials)):
@@ -516,19 +602,35 @@ def main():
                     dataset_name="vqav2",
                     demo_mode=args.demo_mode,
                     visual_demo_mode=args.visual_demo_mode,
+                    cached_features=cached_features,
                 )
-                if args.rank == 0:
-                    logging.info(f"Shots {shot} Trial {trial} VQA score: {vqa_score}")
+
+                if args.rank == 0 and vqa_score is not None:
+                    logger.info(f"Shots {shot} Trial {trial} VQA score: {vqa_score}")
                     scores.append(vqa_score)
 
-            if args.rank == 0:
+            if args.rank == 0 and len(scores) > 0:
                 logging.info(f"Shots {shot} Mean VQA score: {np.nanmean(scores)}")
                 results["vqav2"].append(
-                    {"shots": shot, "trials": scores, "mean": np.nanmean(scores)}
+                    {
+                        "shots": shot,
+                        "trials": scores,
+                        "mean": np.nanmean(scores),
+                        "stddev": np.nanstd(scores),
+                    }
                 )
 
     if args.eval_vizwiz:
         logging.info("Evaluating on VizWiz...")
+
+        # load cached demonstration features for RICES
+        if args.cached_demonstration_features is not None:
+            cached_features = torch.load(
+                f"{args.cached_demonstration_features}/vizwiz.pkl", map_location="cpu"
+            )
+        else:
+            cached_features = None
+
         for shot in args.shots:
             scores = []
             for seed, trial in zip(args.trial_seeds, range(args.num_trials)):
@@ -538,19 +640,34 @@ def main():
                     num_shots=shot,
                     seed=seed,
                     dataset_name="vizwiz",
+                    cached_features=cached_features,
                 )
-                if args.rank == 0:
+                if args.rank == 0 and vizwiz_score is not None:
                     logging.info(f"Shots {shot} Trial {trial} VizWiz score: {vizwiz_score}")
                     scores.append(vizwiz_score)
 
-            if args.rank == 0:
+            if args.rank == 0 and len(scores) > 0:
                 logging.info(f"Shots {shot} Mean VizWiz score: {np.nanmean(scores)}")
                 results["vizwiz"].append(
-                    {"shots": shot, "trials": scores, "mean": np.nanmean(scores)}
+                    {
+                        "shots": shot,
+                        "trials": scores,
+                        "mean": np.nanmean(scores),
+                        "stddev": np.nanstd(scores),
+                    }
                 )
 
     if args.eval_textvqa:
         logging.info("Evaluating on TextVQA...")
+
+        # load cached demonstration features for RICES
+        if args.cached_demonstration_features is not None:
+            cached_features = torch.load(
+                f"{args.cached_demonstration_features}/textvqa.pkl", map_location="cpu"
+            )
+        else:
+            cached_features = None
+
         for shot in args.shots:
             scores = []
             for seed, trial in zip(args.trial_seeds, range(args.num_trials)):
@@ -561,6 +678,7 @@ def main():
                     seed=seed,
                     dataset_name="textvqa",
                     max_generation_length=10,
+                    cached_features=cached_features,
                 )
                 if args.rank == 0:
                     logging.info(f"Shots {shot} Trial {trial} TextVQA score: {textvqa_score}")
@@ -569,49 +687,25 @@ def main():
             if args.rank == 0:
                 logging.info(f"Shots {shot} Mean TextVQA score: {np.nanmean(scores)}")
                 results["textvqa"].append(
-                    {"shots": shot, "trials": scores, "mean": np.nanmean(scores)}
+                    {
+                        "shots": shot,
+                        "trials": scores,
+                        "mean": np.nanmean(scores),
+                        "stddev": np.nanstd(scores),
+                    }
                 )
-
-    if args.eval_vizwiz:
-        logging.info("Evaluating on VizWiz...")
-        for shot in args.shots:
-            scores = []
-            for seed, trial in zip(args.trial_seeds, range(args.num_trials)):
-                vizwiz_score = evaluate_vqa(
-                    args=args,
-                    eval_model=eval_model,
-                    num_shots=shot,
-                    seed=seed,
-                    dataset_name="vizwiz",
-                )
-                logging.info(f"Shots {shot} Trial {trial} VizWiz score: {vizwiz_score}")
-                scores.append(vizwiz_score)
-            logging.info(f"Shots {shot} Mean VizWiz score: {np.mean(scores)}")
-            results["vizwiz"].append(
-                {"shots": shot, "trials": scores, "mean": np.mean(scores)}
-            )
-
-    if args.eval_textvqa:
-        logging.info("Evaluating on TextVQA...")
-        for shot in args.shots:
-            scores = []
-            for seed, trial in zip(args.trial_seeds, range(args.num_trials)):
-                textvqa_score = evaluate_vqa(
-                    args=args,
-                    eval_model=eval_model,
-                    num_shots=shot,
-                    seed=seed,
-                    dataset_name="textvqa",
-                )
-                logging.info(f"Shots {shot} Trial {trial} TextVQA score: {textvqa_score}")
-                scores.append(textvqa_score)
-            logging.info(f"Shots {shot} Mean TextVQA score: {np.mean(scores)}")
-            results["textvqa"].append(
-                {"shots": shot, "trials": scores, "mean": np.mean(scores)}
-            )
 
     if args.eval_imagenet:
         logging.info("Evaluating on ImageNet...")
+
+        # load cached demonstration features for RICES
+        if args.cached_demonstration_features is not None:
+            cached_features = torch.load(
+                f"{args.cached_demonstration_features}/imagenet.pkl", map_location="cpu"
+            )
+        else:
+            cached_features = None
+
         for shot in args.shots:
             scores = []
             for seed, trial in zip(args.trial_seeds, range(args.num_trials)):
@@ -622,6 +716,8 @@ def main():
                     seed=seed,
                     no_kv_caching=args.no_caching_for_classification,
                     dataset_name="imagenet",
+                    cached_features=cached_features,
+                    use_prompt_ensembling=args.classification_prompt_ensembling,
                     demo_mode=args.demo_mode,
                 )
                 if args.rank == 0:
@@ -634,11 +730,25 @@ def main():
             if args.rank == 0:
                 logging.info(f"Shots {shot} Mean ImageNet score: {np.nanmean(scores)}")
                 results["imagenet"].append(
-                    {"shots": shot, "trials": scores, "mean": np.nanmean(scores)}
+                    {
+                        "shots": shot,
+                        "trials": scores,
+                        "mean": np.nanmean(scores),
+                        "stddev": np.nanstd(scores),
+                    }
                 )
 
     if args.eval_hateful_memes:
         logging.info("Evaluating on Hateful Memes...")
+        # load cached demonstration features for RICES
+        if args.cached_demonstration_features is not None:
+            cached_features = torch.load(
+                f"{args.cached_demonstration_features}/hateful_memes.pkl",
+                map_location="cpu",
+            )
+        else:
+            cached_features = None
+
         for shot in args.shots:
             scores = []
             for seed, trial in zip(args.trial_seeds, range(args.num_trials)):
@@ -650,6 +760,7 @@ def main():
                     no_kv_caching=args.no_caching_for_classification,
                     dataset_name="hateful_memes",
                     demo_mode=args.demo_mode,
+                    cached_features=cached_features,
                 )
                 if args.rank == 0:
                     logging.info(
@@ -661,7 +772,12 @@ def main():
             if args.rank == 0:
                 logging.info(f"Shots {shot} Mean Hateful Memes score: {np.nanmean(scores)}")
                 results["hateful_memes"].append(
-                    {"shots": shot, "trials": scores, "mean": np.nanmean(scores)}
+                    {
+                        "shots": shot,
+                        "trials": scores,
+                        "mean": np.nanmean(scores),
+                        "stddev": np.nanstd(scores),
+                    }
                 )
 
     if args.rank == 0 and args.results_file is not None:
@@ -737,9 +853,10 @@ def evaluate_captioning(
     min_generation_length: int = 0,
     max_generation_length: int = 20,
     num_beams: int = 3,
-    length_penalty: float = -2.0,
+    length_penalty: float = 0.0,
     num_shots: int = 8,
     dataset_name: str = "coco",
+    cached_features=None,
     demo_mode: str = "gold",
 ):
     """Evaluate a model on COCO dataset.
@@ -753,6 +870,7 @@ def evaluate_captioning(
         length_penalty (float, optional): length penalty for beam search. Defaults to -2.0.
         num_shots (int, optional): number of in-context samples to use. Defaults to 8.
         dataset_name (str, optional): dataset to evaluate on. Can be "coco" or "flickr". Defaults to "coco".
+        cached_features (tensor, optional): cached demonstration features for RICES. Defaults to None.
     Returns:
         float: CIDEr score
 
@@ -799,35 +917,48 @@ def evaluate_captioning(
     )
 
     # num_shots should > 0, otherwise, it will be set to 2
-    effective_num_shots = compute_effective_num_shots(num_shots, args.model)
+    effective_num_shots = utils.compute_effective_num_shots(num_shots, args.model)
     logger.info(f"Effective number of shots: {effective_num_shots}")
 
-    test_dataloader = prepare_eval_samples(
+    np.random.seed(seed)
+    test_dataloader = utils.prepare_eval_samples(
         test_dataset,
         args.num_samples if args.num_samples > 0 else len(test_dataset),
         args.batch_size,
-        seed,
     )
 
-    in_context_samples = get_query_set(train_dataset, args.query_set_size, seed)
+    if args.rices:
+        rices_dataset = RICES(
+            train_dataset,
+            eval_model.device,
+            args.batch_size,
+            cached_features=cached_features,
+            vision_encoder_path=args.rices_vision_encoder_path,
+            vision_encoder_pretrained=args.rices_vision_encoder_pretrained,
+        )
+    else:
+        # subset of the training set to sample context images from
+        query_set = utils.get_query_set(train_dataset, args.query_set_size)
 
+    utils.random_seed(seed, args.rank)
     predictions = defaultdict()
 
     np.random.seed(
         seed + args.rank
     )  # make sure each worker has a different seed for the random context samples
-    random.seed(seed + args.rank)
     for batch in tqdm(
         test_dataloader,
         desc=f"Running inference {dataset_name.upper()}",
         disable=args.rank != 0,
     ):
-        batch_demo_samples = sample_batch_demos_from_query_set(
-            in_context_samples, effective_num_shots, len(batch["image"]), seed + args.rank
-        )
+        if args.rices:
+            batch_demo_samples = rices_dataset.find(batch["image"], effective_num_shots)
+        else:
+            batch_demo_samples = utils.sample_batch_demos_from_query_set(
+                query_set, effective_num_shots, len(batch["image"])
+            )
 
-        batch_images = []
-        batch_text = []
+        batch_images, batch_text = [], []
         for i in range(len(batch["image"])):
             if num_shots > 0:
                 context_images = [x["image"] for x in batch_demo_samples[i]]
@@ -837,7 +968,7 @@ def evaluate_captioning(
 
             context_text = "".join(
                 [
-                    eval_model.get_caption_prompt(caption=x["caption"].strip())
+                    eval_model.get_caption_prompt(caption=x["caption"].strip()) + "\n"
                     for x in batch_demo_samples[i]
                 ]
             )
@@ -868,11 +999,11 @@ def evaluate_captioning(
             }
 
     # all gather
-    all_predictions = [None] * args.world_size
+    all_predictions = [None for _ in range(args.world_size)]
     torch.distributed.all_gather_object(all_predictions, predictions)  # list of dicts
 
     if args.rank != 0:
-        return
+        return None
 
     all_predictions = {
         k: v for d in all_predictions for k, v in d.items()
@@ -915,6 +1046,7 @@ def evaluate_vqa(
     length_penalty: float = 0.0,
     num_shots: int = 8,
     dataset_name: str = "vqav2",
+    cached_features=None,
     demo_mode: str = "gold",
     visual_demo_mode: str = "gold",
 ):
@@ -930,6 +1062,7 @@ def evaluate_vqa(
         length_penalty (float, optional): length penalty for beam search. Defaults to -2.0.
         num_shots (int, optional): number of shots to use. Defaults to 8.
         dataset_name (string): type of vqa dataset: currently supports vqav2, ok_vqa. Defaults to vqav2.
+        cached_features (tensor, optional): cached demonstration features for RICES. Defaults to None.
         demo_mode (bool, optional): whether to do task recognition. Defaults to False.
     Returns:
         float: accuracy score
@@ -995,18 +1128,28 @@ def evaluate_vqa(
         dataset_name=dataset_name,
     )
 
-    effective_num_shots = compute_effective_num_shots(num_shots, args.model)
+    effective_num_shots = utils.compute_effective_num_shots(num_shots, args.model)
 
-    test_dataloader = prepare_eval_samples(
+    np.random.seed(seed)
+    test_dataloader = utils.prepare_eval_samples(
         test_dataset,
         args.num_samples if args.num_samples > 0 else len(test_dataset),
         args.batch_size,
-        seed,
-        num_shots
     )
-    # logger.info(f"Starting to prepare in context samples")
-    in_context_samples = get_query_set(train_dataset, args.query_set_size, seed)
-    # logger.info(f"In context samples: {in_context_samples}")
+
+    if args.rices:
+        rices_dataset = RICES(
+            train_dataset,
+            eval_model.device,
+            args.batch_size,
+            cached_features=cached_features,
+            vision_encoder_path=args.rices_vision_encoder_path,
+            vision_encoder_pretrained=args.rices_vision_encoder_pretrained,
+        )
+    else:
+        query_set = utils.get_query_set(train_dataset, args.query_set_size)
+
+    utils.random_seed(seed, args.rank)
     predictions = []
 
     np.random.seed(
@@ -1021,6 +1164,8 @@ def evaluate_vqa(
         desc=f"Running inference {dataset_name}",
         disable=args.rank != 0,
     ):
+
+
         batch_images, batch_text = prepare_vqa_batch(
             batch=batch,
             in_context_samples=in_context_samples,
@@ -1059,10 +1204,11 @@ def evaluate_vqa(
         # assert False
 
     # all gather
-    all_predictions = [None] * args.world_size
+    all_predictions = [None for _ in range(args.world_size)]
     torch.distributed.all_gather_object(all_predictions, predictions)  # list of lists
+
     if args.rank != 0:
-        return
+        return None
 
     all_predictions = [
         item for sublist in all_predictions for item in sublist
@@ -1087,6 +1233,36 @@ def evaluate_vqa(
         logging.info("No annotations provided, skipping accuracy computation.")
         logging.info("Temporary file saved to:", f"{dataset_name}results_{random_uuid}.json")
         acc = None
+        if dataset_name == "vqav2":
+            from open_flamingo.scripts.fill_vqa_testdev_results import (
+                fill_vqav2_test_json,
+            )
+
+            fill_fn = fill_vqav2_test_json
+        elif dataset_name == "vizwiz":
+            from open_flamingo.scripts.fill_vqa_testdev_results import (
+                fill_vizwiz_test_json,
+            )
+
+            fill_fn = fill_vizwiz_test_json
+        else:
+            print(
+                "Temporary file saved to ", f"{dataset_name}results_{random_uuid}.json"
+            )
+            return
+
+        fill_fn(
+            f"{dataset_name}results_{random_uuid}.json",
+            f"{dataset_name}-testdev_{eval_model.lm_name}_{num_shots}_{'rices' if args.rices else 'random'}_{seed}.json",
+            args.vqav2_final_test_questions_json_path
+            if dataset_name == "vqav2"
+            else args.vizwiz_test_questions_json_path,
+        )
+        print(
+            "Test-dev results saved to ",
+            f"{dataset_name}-testdev_{eval_model.lm_name}_{num_shots}_{'rices' if args.rices else 'random'}_{seed}.json",
+        )
+        os.remove(f"{dataset_name}results_{random_uuid}.json")
 
     return acc
 
@@ -1109,11 +1285,14 @@ def prepare_vqa_batch(
         f"Unsupported visual demo mode: {visual_demo_mode}"
     )
     if visual_demo_mode == "random":
-        batch_demo_samples = sample_batch_demos_from_query_set(
-            in_context_samples, effective_num_shots, len(batch["image"]), seed + args.rank
-        )
-        batch_images = []
-        batch_text = []
+        if args.rices:
+            batch_demo_samples = rices_dataset.find(batch["image"], effective_num_shots)
+        else:
+            batch_demo_samples = utils.sample_batch_demos_from_query_set(
+                query_set, effective_num_shots, len(batch["image"])
+            )
+
+        batch_images, batch_text = [], []
         for i in range(len(batch["image"])):
             if num_shots > 0:
                 context_images = [x["image"] for x in batch_demo_samples[i]]
@@ -1126,15 +1305,15 @@ def prepare_vqa_batch(
                     eval_model.get_vqa_prompt(
                         question=x["question"], answer=x["answers"][0]
                     )
+                    + "\n"
                     for x in batch_demo_samples[i]
                 ]
             )
-            # logger.critical(f"Context text: {context_text}")
-            # assert False
 
             # Keep the text but remove the image tags for the zero-shot case
             if num_shots == 0:
                 context_text = context_text.replace("<image>", "")
+
             batch_text.append(
                 context_text + eval_model.get_vqa_prompt(question=batch["question"][i])
             )
@@ -1210,31 +1389,30 @@ def evaluate_classification(
     eval_model,
     seed: int = 42,
     num_shots: int = 8,
-    no_kv_caching=False,
     dataset_name: str = "imagenet",
+    cached_features=None,
+    no_kv_caching=False,
     demo_mode=False,
+    use_prompt_ensembling: bool = False,
 ):
     """
     Evaluate a model on classification dataset.
 
     Args:
         eval_model (BaseEvalModel): model to evaluate
-        imagenet_root (str): path to imagenet root for the specified split.
         seed (int, optional): random seed. Defaults to 42.
         num_shots (int, optional): number of shots to use. Defaults to 8.
+        no_kv_caching (bool): whether to disable key-value caching
         dataset_name (str, optional): dataset name. Defaults to "imagenet".
+        cached_features (tensor, optional): cached demonstration features for RICES. Defaults to None.
 
     Returns:
         float: accuracy score
     """
     if args.model != "open_flamingo":
         raise NotImplementedError(
-            "evaluate_classification is currently only supported for OpenFlamingo "
-            "models"
+            "evaluate_classification is currently only supported for OpenFlamingo"
         )
-    batch_size = args.batch_size
-    num_samples = args.num_samples
-    model, tokenizer = eval_model.model, eval_model.tokenizer
 
     if dataset_name == "imagenet":
         if demo_mode:
@@ -1242,6 +1420,9 @@ def evaluate_classification(
         else:
             train_dataset = ImageNetDataset(os.path.join(args.imagenet_root, "train"))
         test_dataset = ImageNetDataset(os.path.join(args.imagenet_root, "val"))
+        prompt_fn = lambda x: eval_model.get_imagenet_prompt(label=x["class_name"])
+        all_class_names = IMAGENET_CLASSNAMES
+        k = 5
     elif dataset_name == "hateful_memes":
         if demo_mode:
             logger.critical("Task recognition for Hateful Memes")
@@ -1259,262 +1440,117 @@ def evaluate_classification(
             args.hateful_memes_image_dir_path,
             args.hateful_memes_test_annotations_json_path,
         )
+        prompt_fn = lambda x: eval_model.get_hateful_memes_prompt(
+            text=x["ocr"], label=x["class_name"]
+        )
+        all_class_names = HM_CLASSNAMES
+        k = 1
     else:
         raise ValueError(f"Unsupported dataset {dataset_name}")
 
-    effective_num_shots = compute_effective_num_shots(num_shots, args.model)
+    class_id_to_name = dict(zip(range(len(all_class_names)), all_class_names))
 
-    test_dataloader = prepare_eval_samples(
+    effective_num_shots = utils.compute_effective_num_shots(num_shots, args.model)
+
+    np.random.seed(seed)
+    test_dataloader = utils.prepare_eval_samples(
         test_dataset,
         args.num_samples if args.num_samples > 0 else len(test_dataset),
-        batch_size,
-        seed,
+        args.batch_size,
     )
 
-    acc1 = 0
-    acc5 = 0
+    if args.rices:
+        rices_dataset = RICES(
+            train_dataset,
+            eval_model.device,
+            args.batch_size,
+            cached_features=cached_features,
+            vision_encoder_path=args.rices_vision_encoder_path,
+            vision_encoder_pretrained=args.rices_vision_encoder_pretrained,
+        )
+    else:
+        # subset of the training set to sample context images from
+        query_set = utils.get_query_set(train_dataset, args.query_set_size)
 
-    if dataset_name == "imagenet":
-        prompt_text = "<image>Output:"
-    elif dataset_name == "hateful_memes":
-        prompt_text = "<image>is an image with: '{meme_text}' written on it. Is it hateful? Answer: "
-
+    utils.random_seed(seed, args.rank)
     predictions = []
-
-    np.random.seed(
-        seed + args.rank
-    )  # make sure each worker has a different seed for the random context samples
-    random.seed(seed + args.rank)
     for batch_idx, batch in tqdm(
         enumerate(test_dataloader),
         desc=f"Running inference {dataset_name}",
         disable=args.rank != 0,
     ):
-        batch_images = []
-        batch_text = []
-
-        for idx in range(len(batch["image"])):
-            # Choose a different set of random context samples for each sample
-            # from the training set
-            context_indices = np.random.choice(
-                len(train_dataset), effective_num_shots, replace=False
+        if args.rices:
+            batch_demo_samples = rices_dataset.find(batch["image"], effective_num_shots)
+        else:
+            batch_demo_samples = utils.sample_batch_demos_from_query_set(
+                query_set, effective_num_shots, len(batch["image"])
             )
 
-            in_context_samples = [train_dataset[i] for i in context_indices]
+        # set up prompt ensembling
+        num_permutations = (
+            min(6, math.factorial(effective_num_shots)) if use_prompt_ensembling else 1
+        )
+        logprobs = []
+        for _ in range(num_permutations):
+            batch_images, batch_text = [], []
+            for i in range(len(batch["image"])):
+                if use_prompt_ensembling:
+                    random.shuffle(batch_demo_samples[i])
 
-            if num_shots > 0:
-                vision_x = [
-                    eval_model.image_processor(data["image"]).unsqueeze(0)
-                    for data in in_context_samples
-                ]
-            else:
-                vision_x = []
-
-            vision_x = vision_x + [
-                eval_model.image_processor(batch["image"][idx]).unsqueeze(0)
-            ]
-            batch_images.append(torch.cat(vision_x, dim=0))
-
-            def sample_to_prompt(sample):
-                if dataset_name == "hateful_memes":
-                    return prompt_text.replace("{meme_text}", sample["ocr"])
+                if effective_num_shots > 0:
+                    context_images = [x["image"] for x in batch_demo_samples[i]]
                 else:
-                    return prompt_text
+                    context_images = []
+                batch_images.append(context_images + [batch["image"][i]])
 
-            context_text = "".join(
-                f"{sample_to_prompt(in_context_samples[i])}{in_context_samples[i]['class_name']}<|endofchunk|>"
-                for i in range(effective_num_shots)
+                context_text = "".join([prompt_fn(x) for x in batch_demo_samples[i]])
+
+                # Keep the text but remove the image tags for the zero-shot case
+                if num_shots == 0:
+                    context_text = context_text.replace("<image>", "")
+
+                batch_text.append(
+                    context_text
+                    + prompt_fn({"ocr": batch["ocr"][i], "class_name": None})
+                )
+
+            # get predicted class names
+            logprobs.append(
+                eval_model.get_rank_classifications(
+                    batch_text,
+                    batch_images,
+                    all_class_names,
+                    use_cache=(not no_kv_caching),
+                    normalize_length=True,
+                )
             )
 
-            # Keep the text but remove the image tags for the zero-shot case
-            if num_shots == 0:
-                context_text = context_text.replace("<image>", "")
+        # ensemble logprobs together
+        logprobs = torch.mean(torch.stack(logprobs, dim=-1), dim=-1)
 
-            batch_text.append(context_text)
-
-        # shape [B, T_img, C, h, w]
-        vision_x = torch.stack(batch_images, dim=0)
-        # shape [B, T_img, 1, C, h, w] where 1 is the frame dimension
-        vision_x = vision_x.unsqueeze(2)
-
-        # Cache the context text: tokenize context and prompt,
-        # e.g. '<context> a picture of a '
-        text_x = [
-            context_text + sample_to_prompt({k: batch[k][idx] for k in batch.keys()})
-            for idx, context_text in enumerate(batch_text)
-        ]
-
-        ctx_and_prompt_tokenized = tokenizer(
-            text_x,
-            return_tensors="pt",
-            padding="longest",
-            max_length=2000,
+        predicted_classnames, predicted_logprobs = utils.get_predicted_classnames(
+            logprobs,
+            k,
+            class_id_to_name,
         )
 
-        ctx_and_prompt_input_ids = ctx_and_prompt_tokenized["input_ids"].to(
-            eval_model.device
-        )
-        ctx_and_prompt_attention_mask = (
-            ctx_and_prompt_tokenized["attention_mask"].to(eval_model.device).bool()
-        )
-
-        def _detach_pkvs(pkvs):
-            """Detach a set of past key values."""
-            return list([tuple([x.detach() for x in inner]) for inner in pkvs])
-
-        if not no_kv_caching:
-            eval_model.cache_media(
-                input_ids=ctx_and_prompt_input_ids,
-                vision_x=vision_x.to(eval_model.device),
-            )
-
-            with torch.no_grad():
-                precomputed = eval_model.model(
-                    vision_x=None,
-                    lang_x=ctx_and_prompt_input_ids,
-                    attention_mask=ctx_and_prompt_attention_mask,
-                    clear_conditioned_layers=False,
-                    use_cache=True,
-                )
-
-            precomputed_pkvs = _detach_pkvs(precomputed.past_key_values)
-            precomputed_logits = precomputed.logits.detach()
-        else:
-            precomputed_pkvs = None
-            precomputed_logits = None
-
-        if dataset_name == "imagenet":
-            all_class_names = IMAGENET_CLASSNAMES
-        else:
-            all_class_names = HM_CLASSNAMES
-
-        if dataset_name == "imagenet":
-            class_id_to_name = IMAGENET_1K_CLASS_ID_TO_LABEL
-        else:
-            class_id_to_name = HM_CLASS_ID_TO_LABEL
-
-        overall_probs = []
-        for class_name in all_class_names:
-            past_key_values = None
-            # Tokenize only the class name and iteratively decode the model's
-            # predictions for this class.
-            classname_tokens = tokenizer(
-                class_name, add_special_tokens=False, return_tensors="pt"
-            )["input_ids"].to(eval_model.device)
-
-            if classname_tokens.ndim == 1:  # Case: classname is only 1 token
-                classname_tokens = torch.unsqueeze(classname_tokens, 1)
-
-            classname_tokens = repeat(
-                classname_tokens, "b s -> (repeat b) s", repeat=len(batch_text)
-            )
-
-            if not no_kv_caching:
-                # Compute the outputs one token at a time, using cached
-                # activations.
-
-                # Initialize the elementwise predictions with the last set of
-                # logits from precomputed; this will correspond to the predicted
-                # probability of the first position/token in the imagenet
-                # classname. We will append the logits for each token to this
-                # list (each element has shape [B, 1, vocab_size]).
-                elementwise_logits = [precomputed_logits[:, -2:-1, :]]
-
-                for token_idx in range(classname_tokens.shape[1]):
-                    _lang_x = classname_tokens[:, token_idx].reshape((-1, 1))
-                    outputs = eval_model.get_logits(
-                        lang_x=_lang_x,
-                        past_key_values=(
-                            past_key_values if token_idx > 0 else precomputed_pkvs
-                        ),
-                        clear_conditioned_layers=False,
-                    )
-                    past_key_values = _detach_pkvs(outputs.past_key_values)
-                    elementwise_logits.append(outputs.logits.detach())
-
-                # logits/probs has shape [B, classname_tokens + 1, vocab_size]
-                logits = torch.concat(elementwise_logits, 1)
-                probs = torch.softmax(logits, dim=-1)
-
-                # collect the probability of the generated token -- probability
-                # at index 0 corresponds to the token at index 1.
-                probs = probs[:, :-1, :]  # shape [B, classname_tokens, vocab_size]
-
-                gen_probs = (
-                    torch.gather(probs, 2, classname_tokens[:, :, None])
-                    .squeeze(-1)
-                    .cpu()
-                )
-
-                class_prob = torch.prod(gen_probs, 1).numpy()
-            else:
-                # Compute the outputs without using cached
-                # activations.
-
-                # contatenate the class name tokens to the end of the context
-                # tokens
-                _lang_x = torch.cat([ctx_and_prompt_input_ids, classname_tokens], dim=1)
-                _attention_mask = torch.cat(
-                    [
-                        ctx_and_prompt_attention_mask,
-                        torch.ones_like(classname_tokens).bool(),
-                    ],
-                    dim=1,
-                )
-
-                outputs = eval_model.get_logits(
-                    vision_x=vision_x.to(eval_model.device),
-                    lang_x=_lang_x.to(eval_model.device),
-                    attention_mask=_attention_mask.to(eval_model.device),
-                    clear_conditioned_layers=True,
-                )
-
-                logits = outputs.logits.detach().float()
-                probs = torch.softmax(logits, dim=-1)
-
-                # get probability of the generated class name tokens
-                gen_probs = probs[
-                    :, ctx_and_prompt_input_ids.shape[1] - 1 : _lang_x.shape[1], :
-                ]
-                gen_probs = (
-                    torch.gather(gen_probs, 2, classname_tokens[:, :, None])
-                    .squeeze(-1)
-                    .cpu()
-                )
-                class_prob = torch.prod(gen_probs, 1).numpy()
-
-            overall_probs.append(class_prob)
-
-        overall_probs = np.row_stack(overall_probs).T  # shape [B, num_classes]
-
-        eval_model.uncache_media()
-
-        def topk(probs_ary: np.ndarray, k: int) -> np.ndarray:
-            """Return the indices of the top k elements in probs_ary."""
-            return np.argsort(probs_ary)[::-1][:k]
-
-        for i in range(len(batch_text)):
-            highest_prob_idxs = topk(overall_probs[i], 5)
-
-            top5 = [class_id_to_name[pred] for pred in highest_prob_idxs]
-
+        # compute accuracy
+        for i, topk in enumerate(predicted_classnames):
             y_i = batch["class_name"][i]
-            acc5 += int(y_i in set(top5))
-            acc1 += int(y_i == top5[0])
-
+            score = torch.exp(
+                predicted_logprobs[i][0] - torch.logsumexp(logprobs[i], dim=0)
+            ).item()
             predictions.append(
                 {
                     "id": batch["id"][i],
                     "gt_label": y_i,
-                    "pred_label": top5[0],
-                    "pred_score": overall_probs[i][highest_prob_idxs[0]]
-                    if dataset_name == "hateful_memes"
-                    else None,  # only for hateful memes
+                    "pred_label": topk[0],
+                    "pred_score": score,
                 }
             )
 
     # all gather
-    all_predictions = [None] * args.world_size
+    all_predictions = [None for _ in range(args.world_size)]
     torch.distributed.all_gather_object(all_predictions, predictions)  # list of lists
     if args.rank != 0:
         return
@@ -1523,15 +1559,16 @@ def evaluate_classification(
         item for sublist in all_predictions for item in sublist
     ]  # flatten
 
-    # Hack to remove samples with duplicate ids (only necessary for multi-GPU evaluation)
-    all_predictions = {pred["id"]: pred for pred in all_predictions}.values()
-
-    assert len(all_predictions) == len(test_dataset)  # sanity check
-
     if dataset_name == "hateful_memes":
         # return ROC-AUC score
+        greater_label = max(all_class_names)
         gts = [pred["gt_label"] for pred in all_predictions]
-        pred_scores = [pred["pred_score"] for pred in all_predictions]
+        pred_scores = [
+            pred["pred_score"]
+            if pred["pred_label"] == greater_label
+            else 1 - pred["pred_score"]
+            for pred in all_predictions
+        ]
         return roc_auc_score(gts, pred_scores)
     else:
         # return top-1 accuracy
