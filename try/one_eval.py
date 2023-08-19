@@ -9,7 +9,7 @@ from huggingface_hub import hf_hub_download
 import torch
 
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.DEBUG,
     format='[%(levelname)s:%(asctime)s:%(name)s:%(filename)s:%(lineno)d]\t %(message)s',
 )
 
@@ -26,7 +26,14 @@ MODEL_DICT_4B = {
     "flamingo": "openflamingo/OpenFlamingo-4B-vitl-rpj3b-langinstruct",
     "cross_attn_every_n_layers": 2
 }
-MODEL = MODEL_DICT_4B
+
+MODEL_DICT_3B = {
+    "language": "anas-awadalla/mpt-1b-redpajama-200b",
+    "flamingo": "openflamingo/OpenFlamingo-3B-vitl-mpt1b",
+    "cross_attn_every_n_layers": 4
+}
+
+MODEL = MODEL_DICT_3B
 
 model, image_processor, tokenizer = create_model_and_transforms(
     clip_vision_encoder_path="ViT-L-14",
