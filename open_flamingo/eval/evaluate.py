@@ -6,18 +6,20 @@ import random
 import uuid
 from collections import defaultdict
 import logging
+from PIL import Image
+
 
 from einops import repeat
 import more_itertools
 import numpy as np
 import torch
 from sklearn.metrics import roc_auc_score
-
+from pycocotools.coco import COCO
 from coco_metric import compute_cider, postprocess_captioning_generation
 from eval_datasets import (
     CaptionDataset,
     CaptionDatasetTR,
-    VQADatasetTR,
+    VQADatasetDiffDemoForm,
     VQADataset,
     ImageNetDataset,
     HatefulMemesDataset,
@@ -45,15 +47,45 @@ logging.basicConfig(
     format='[%(levelname)s:%(asctime)s:%(name)s:%(filename)s:%(lineno)d]\t %(message)s',
 )
 
+
+
+COCO_PATH = "/dss/dssmcmlfs01/pn34sa/pn34sa-dss-0000/robustness/VL_adapter/datasets/COCO"
 logger = logging.getLogger(__name__)
 
 parser = argparse.ArgumentParser()
 
 parser.add_argument(
-    "--do_task_recognition",
-    action="store_true",
-    default=False,
-    help="Whether to do task recognition study.",
+    "--demo_mode",
+    type=str,
+    default="gold",
+    help="Question and Label Demonstration mode.",
+    choices=[None,
+             "gold",
+             "no_labels",
+             "no_questions_no_labels",
+             "only_labels",
+             "random_strings_as_labels",
+             "random_words_as_labels",
+             "random_outer_label_as_labels",
+             "random_label_for_same_question_type_as_labels",
+             "random_label_for_same_question_as_labels",
+             "ood_inputs",
+             "random_strings_inputs",
+             "random_question_inputs",
+           ]
+)
+
+parser.add_argument(
+    "--visual_demo_mode",
+    type=str,
+    default="random",
+    help="Visual Demonstration mode.",
+    choices=[None,
+             "random", # random images demo
+             "same_category", # same category images demo
+             ]
+
+
 )
 
 parser.add_argument(
@@ -434,7 +466,7 @@ def main():
                     num_shots=shot,
                     seed=seed,
                     dataset_name="coco",
-                    do_task_recognition=args.do_task_recognition,
+                    demo_mode=args.demo_mode,
                 )
                 if args.rank == 0:
                     logging.info(f"Shots {shot} Trial {trial} CIDEr score: {cider_score}")
@@ -457,7 +489,7 @@ def main():
                     num_shots=shot,
                     seed=seed,
                     dataset_name="ok_vqa",
-                    do_task_recognition=args.do_task_recognition,
+                    demo_mode=args.demo_mode,
                 )
                 if args.rank == 0:
                     logging.info(f"Shots {shot} Trial {trial} OK-VQA score: {ok_vqa_score}")
@@ -471,7 +503,8 @@ def main():
 
     if args.eval_vqav2:
         logging.info("Evaluating on VQAv2...")
-        logger.info(f"Do task recognition: {args.do_task_recognition}")
+        logger.info(f"Demonstration Mode: {args.demo_mode}")
+        logger.info(f"Visual Demonstration Mode: {args.visual_demo_mode}")
         for shot in args.shots:
             scores = []
             for seed, trial in zip(args.trial_seeds, range(args.num_trials)):
@@ -481,7 +514,8 @@ def main():
                     num_shots=shot,
                     seed=seed,
                     dataset_name="vqav2",
-                    do_task_recognition=args.do_task_recognition,
+                    demo_mode=args.demo_mode,
+                    visual_demo_mode=args.visual_demo_mode,
                 )
                 if args.rank == 0:
                     logging.info(f"Shots {shot} Trial {trial} VQA score: {vqa_score}")
@@ -588,7 +622,7 @@ def main():
                     seed=seed,
                     no_kv_caching=args.no_caching_for_classification,
                     dataset_name="imagenet",
-                    do_task_recognition=args.do_task_recognition,
+                    demo_mode=args.demo_mode,
                 )
                 if args.rank == 0:
                     logging.info(
@@ -615,7 +649,7 @@ def main():
                     seed=seed,
                     no_kv_caching=args.no_caching_for_classification,
                     dataset_name="hateful_memes",
-                    do_task_recognition=args.do_task_recognition,
+                    demo_mode=args.demo_mode,
                 )
                 if args.rank == 0:
                     logging.info(
@@ -655,7 +689,7 @@ def get_query_set(train_dataset, query_set_size, seed):
     return [train_dataset[i] for i in query_set]
 
 
-def prepare_eval_samples(test_dataset, num_samples, batch_size, seed):
+def prepare_eval_samples(test_dataset, num_samples, batch_size, seed, num_shots=0):
     np.random.seed(seed)
     random_indices = np.random.choice(len(test_dataset), num_samples, replace=False)
     logger.info(f"Original test dataset length {len(test_dataset)}")
@@ -664,6 +698,10 @@ def prepare_eval_samples(test_dataset, num_samples, batch_size, seed):
 
     dataset = torch.utils.data.Subset(test_dataset, random_indices)
     sampler = torch.utils.data.distributed.DistributedSampler(dataset)
+    if num_shots == 32:
+        batch_size = 2 # for vqa ood, TODO
+    if num_shots == 16:
+        batch_size = 2 # for vqa ood, TODO
     loader = torch.utils.data.DataLoader(
         dataset,
         batch_size=batch_size,
@@ -674,7 +712,8 @@ def prepare_eval_samples(test_dataset, num_samples, batch_size, seed):
 
 
 def sample_batch_demos_from_query_set(query_set, num_samples, batch_size, seed):
-    random.seed(seed)
+    # random.seed(seed)
+    # for every test sample in one batch, random sampling #shots from query set
     return [random.sample(query_set, num_samples) for _ in range(batch_size)]
 
 
@@ -701,7 +740,7 @@ def evaluate_captioning(
     length_penalty: float = -2.0,
     num_shots: int = 8,
     dataset_name: str = "coco",
-    do_task_recognition: bool = False,
+    demo_mode: str = "gold",
 ):
     """Evaluate a model on COCO dataset.
 
@@ -733,7 +772,7 @@ def evaluate_captioning(
     else:
         raise ValueError(f"Unsupported dataset: {dataset_name}")
 
-    if do_task_recognition:
+    if demo_mode:
         train_dataset = CaptionDatasetTR(
             seed=seed,
             image_train_dir_path=image_train_dir_path,
@@ -802,7 +841,7 @@ def evaluate_captioning(
                     for x in batch_demo_samples[i]
                 ]
             )
-            # logger.critical(f"context_text: {context_text} do task recognition: {do_task_recognition}")
+            # logger.critical(f"context_text: {context_text} do task recognition: {demo_mode}")
             # assert False
             # Keep the text but remove the image tags for the zero-shot case
             if num_shots == 0:
@@ -876,7 +915,8 @@ def evaluate_vqa(
     length_penalty: float = 0.0,
     num_shots: int = 8,
     dataset_name: str = "vqav2",
-    do_task_recognition: bool = False,
+    demo_mode: str = "gold",
+    visual_demo_mode: str = "gold",
 ):
     """
     Evaluate a model on VQA datasets. Currently supports VQA v2.0, OK-VQA, VizWiz and TextVQA.
@@ -890,7 +930,7 @@ def evaluate_vqa(
         length_penalty (float, optional): length penalty for beam search. Defaults to -2.0.
         num_shots (int, optional): number of shots to use. Defaults to 8.
         dataset_name (string): type of vqa dataset: currently supports vqav2, ok_vqa. Defaults to vqav2.
-        do_task_recognition (bool, optional): whether to do task recognition. Defaults to False.
+        demo_mode (bool, optional): whether to do task recognition. Defaults to False.
     Returns:
         float: accuracy score
     """
@@ -925,13 +965,16 @@ def evaluate_vqa(
         test_annotations_json_path = args.textvqa_test_annotations_json_path
     else:
         raise ValueError(f"Unsupported dataset: {dataset_name}")
-    if do_task_recognition:
-        logger.info(f"Using task recognition for {dataset_name}")
-        train_dataset = VQADatasetTR(
+    if demo_mode:
+        logger.info(f"Using demo mode {demo_mode} for {dataset_name}")
+        logger.info(f"Using visual demo mode {visual_demo_mode} for {dataset_name}")
+        train_dataset = VQADatasetDiffDemoForm(
             seed=seed,
             image_dir_path=train_image_dir_path,
             question_path=train_questions_json_path,
             annotations_path=train_annotations_json_path,
+            mode=demo_mode,
+            visual_demo_mode=visual_demo_mode,
             is_train=True,
             dataset_name=dataset_name,
         )
@@ -959,52 +1002,39 @@ def evaluate_vqa(
         args.num_samples if args.num_samples > 0 else len(test_dataset),
         args.batch_size,
         seed,
+        num_shots
     )
-
+    # logger.info(f"Starting to prepare in context samples")
     in_context_samples = get_query_set(train_dataset, args.query_set_size, seed)
+    # logger.info(f"In context samples: {in_context_samples}")
     predictions = []
 
     np.random.seed(
         seed + args.rank
     )  # make sure each worker has a different seed for the random context samples
     random.seed(seed + args.rank)
+    coco = COCO(f"{COCO_PATH}/annotations-2014/instances_train2014.json")
+    jpeg_train_to_info = json.load(open("COCO_TRAIN_2014_JPEG_TO_INFO.json"))
+    jpeg_val_to_info = json.load(open("COCO_VAL_2014_JPEG_TO_INFO.json"))
     for batch in tqdm(
         test_dataloader,
         desc=f"Running inference {dataset_name}",
         disable=args.rank != 0,
     ):
-        batch_demo_samples = sample_batch_demos_from_query_set(
-            in_context_samples, effective_num_shots, len(batch["image"]), seed + args.rank
+        batch_images, batch_text = prepare_vqa_batch(
+            batch=batch,
+            in_context_samples=in_context_samples,
+            dataset=train_dataset,
+            coco=coco,
+            eval_model=eval_model,
+            effective_num_shots=effective_num_shots,
+            num_shots=num_shots,
+            seed=seed,
+            args=args,
+            visual_demo_mode=visual_demo_mode,
+            jpeg_train_to_info=jpeg_train_to_info,
+            jpeg_val_to_info=jpeg_val_to_info,
         )
-
-        batch_images = []
-        batch_text = []
-        for i in range(len(batch["image"])):
-            if num_shots > 0:
-                context_images = [x["image"] for x in batch_demo_samples[i]]
-            else:
-                context_images = []
-            batch_images.append(context_images + [batch["image"][i]])
-
-            context_text = "".join(
-                [
-                    eval_model.get_vqa_prompt(
-                        question=x["question"], answer=x["answers"][0]
-                    )
-                    for x in batch_demo_samples[i]
-                ]
-            )
-            # logger.critical(f"Context text: {context_text}")
-            # assert False
-
-            # Keep the text but remove the image tags for the zero-shot case
-            if num_shots == 0:
-                context_text = context_text.replace("<image>", "")
-
-            batch_text.append(
-                context_text + eval_model.get_vqa_prompt(question=batch["question"][i])
-            )
-        # logger.critical(f"Batch text: {batch_text}")
         outputs = eval_model.get_outputs(
             batch_images=batch_images,
             batch_text=batch_text,
@@ -1061,6 +1091,120 @@ def evaluate_vqa(
     return acc
 
 
+def prepare_vqa_batch(
+        batch,
+        in_context_samples,
+        dataset,
+        coco,
+        eval_model,
+        effective_num_shots,
+        num_shots,
+        seed,
+        args,
+        visual_demo_mode,
+        jpeg_train_to_info,
+        jpeg_val_to_info,
+):
+    assert visual_demo_mode in ["random", "same_category"], (
+        f"Unsupported visual demo mode: {visual_demo_mode}"
+    )
+    if visual_demo_mode == "random":
+        batch_demo_samples = sample_batch_demos_from_query_set(
+            in_context_samples, effective_num_shots, len(batch["image"]), seed + args.rank
+        )
+        batch_images = []
+        batch_text = []
+        for i in range(len(batch["image"])):
+            if num_shots > 0:
+                context_images = [x["image"] for x in batch_demo_samples[i]]
+            else:
+                context_images = []
+            batch_images.append(context_images + [batch["image"][i]])
+
+            context_text = "".join(
+                [
+                    eval_model.get_vqa_prompt(
+                        question=x["question"], answer=x["answers"][0]
+                    )
+                    for x in batch_demo_samples[i]
+                ]
+            )
+            # logger.critical(f"Context text: {context_text}")
+            # assert False
+
+            # Keep the text but remove the image tags for the zero-shot case
+            if num_shots == 0:
+                context_text = context_text.replace("<image>", "")
+            batch_text.append(
+                context_text + eval_model.get_vqa_prompt(question=batch["question"][i])
+            )
+        # logger.critical(f"Batch text: {batch_text}")
+        return batch_images, batch_text
+    elif visual_demo_mode == "same_category":
+        assert num_shots > 0
+        batch_images = []
+        batch_text = []
+        for i in range(len(batch["image"])):
+            image_file_name = batch["image_file_name"][i]
+            # logger.critical(f"Test Image file name: {image_file_name}")
+            image_category_list = get_contained_category(image_file_name, jpeg_train_to_info, jpeg_val_to_info)
+            images_file_name_in_category = get_img_in_category(coco, image_category_list)
+            images_file_name_in_category = random.sample(images_file_name_in_category, num_shots) if num_shots < len(images_file_name_in_category) else images_file_name_in_category
+            # logger.critical(f"Context Images in category {image_category_list[0]}: {images_file_name_in_category}")
+            context_images = []
+            for image_file_name in images_file_name_in_category:
+                img_path = os.path.join(dataset.image_dir_path, image_file_name)
+                img = Image.open(img_path)
+                img.load()
+                context_images.append(img)
+            batch_images.append(context_images + [batch["image"][i]])
+
+            # l = [dataset.get_ques_and_ans_by_img(image_file_name) for image_file_name in images_file_name_in_category]
+            # logger.critical(f"l[0]: {l[0]}")
+
+            context_text = "".join(
+                [
+                    # x = [
+                    #   [question, [answer]],
+                    #   [question, [answer]],
+                    # ]
+                    eval_model.get_vqa_prompt(
+                        question=x[0][0], answer=x[0][1][0]
+                    )
+                    for x in [dataset.get_ques_and_ans_by_img(image_file_name) for image_file_name in images_file_name_in_category]
+                ]
+            )
+            # logger.critical(f"Context text: {context_text}")
+            batch_text.append(
+                context_text + eval_model.get_vqa_prompt(question=batch["question"][i])
+            )
+        # assert False
+        return batch_images, batch_text
+
+
+def get_contained_category(image_file_name, jpeg_train_to_info, jpeg_val_to_info):
+    category = []
+    if image_file_name in jpeg_train_to_info:
+        for anno in jpeg_train_to_info[image_file_name]["annotations"]:
+            category.append(anno["category_id"])
+    elif image_file_name in jpeg_val_to_info:
+        for anno in jpeg_val_to_info[image_file_name]["annotations"]:
+            category.append(anno["category_id"])
+    else:
+        raise ValueError(f"Image {image_file_name} not found in COCO dataset.")
+    if len(category) == 0:
+        category.append(random.randint(1, 50))
+        logger.info(f"Image {image_file_name} has no category, use random category {category[0]}.")
+        # assert False
+    return category
+
+
+def get_img_in_category(coco, category_list):
+    # TODO now only use the first category
+    image_ids = coco.getImgIds(catIds=[category_list[0]])
+    image_file_names = [f"COCO_train2014_{str(id).zfill(12)}.jpg"for id in image_ids]
+    return image_file_names
+
 def evaluate_classification(
     args: argparse.Namespace,
     eval_model,
@@ -1068,7 +1212,7 @@ def evaluate_classification(
     num_shots: int = 8,
     no_kv_caching=False,
     dataset_name: str = "imagenet",
-    do_task_recognition=False,
+    demo_mode=False,
 ):
     """
     Evaluate a model on classification dataset.
@@ -1093,13 +1237,13 @@ def evaluate_classification(
     model, tokenizer = eval_model.model, eval_model.tokenizer
 
     if dataset_name == "imagenet":
-        if do_task_recognition:
+        if demo_mode:
             raise NotImplementedError("Task recognition is not yet supported for ImageNet")
         else:
             train_dataset = ImageNetDataset(os.path.join(args.imagenet_root, "train"))
         test_dataset = ImageNetDataset(os.path.join(args.imagenet_root, "val"))
     elif dataset_name == "hateful_memes":
-        if do_task_recognition:
+        if demo_mode:
             logger.critical("Task recognition for Hateful Memes")
             train_dataset = HatefulMemesDatasetTR(
                 seed,
