@@ -13,7 +13,6 @@ VQAV2_IMG_TEST_PATH="${BASE_DATA_PATH}/val2014"
 VQAV2_ANNO_TEST_PATH="${BASE_DATA_PATH}/v2_mscoco_val2014_annotations.json"
 VQAV2_QUESTION_TEST_PATH="${BASE_DATA_PATH}/v2_OpenEnded_mscoco_val2014_questions.json"
 
-
 # 9B
 #CKPT_PATH="/dss/dssmcmlfs01/pn34sa/pn34sa-dss-0000/.cache/huggingface/hub/models--openflamingo--OpenFlamingo-9B-vitl-mpt7b/snapshots/e6e175603712c7007fe3b9c0d50bdcfbd83adfc2/checkpoint.pt"
 #LM_MODEL="anas-awadalla/mpt-7b"
@@ -25,9 +24,12 @@ CROSS_ATTN_EVERY_N_LAYERS=2
 export CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7
 NUM_GPUs=`echo $CUDA_VISIBLE_DEVICES | grep -P -o '\d' | wc -l`
 TIMESTAMP=`date +"%Y-%m-%d-%T"`
-COMMENT="4B-vqav2-TR"
+MODE="gold"
+VISUAL_MODE="same_category"
+COMMENT="4B-vqav2-$MODE-$VISUAL_MODE"
+
 RESULTS_FILE="results_${TIMESTAMP}_${COMMENT}.json"
-torchrun --nnodes=1 --nproc_per_node="$NUM_GPUs" open_flamingo/eval/evaluate.py \
+torchrun --nnodes=1 --nproc_per_node="$NUM_GPUs" --master_port=26002 open_flamingo/eval/evaluate.py \
     --vision_encoder_path ViT-L-14 \
     --vision_encoder_pretrained openai\
     --lm_path ${LM_MODEL} \
@@ -36,10 +38,12 @@ torchrun --nnodes=1 --nproc_per_node="$NUM_GPUs" open_flamingo/eval/evaluate.py 
     --checkpoint_path ${CKPT_PATH} \
     --results_file ${RESULTS_FILE} \
     --precision amp_bf16 \
-    --batch_size 2 \
+    --batch_size 8 \
     --num_trials 1 \
+    --shots 4 8 16 \
     --trial_seeds 42 \
-    --do_task_recognition \
+    --demo_mode  $MODE \
+    --visual_demo_mode $VISUAL_MODE \
     --eval_vqav2 \
     --vqav2_train_image_dir_path ${VQAV2_IMG_TRAIN_PATH} \
     --vqav2_train_annotations_json_path ${VQAV2_ANNO_TRAIN_PATH} \

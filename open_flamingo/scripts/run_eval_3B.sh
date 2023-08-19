@@ -1,37 +1,34 @@
 #!/bin/bash
 export HF_HOME="/dss/dssmcmlfs01/pn34sa/pn34sa-dss-0000/.cache/huggingface"
-BASE_COCO_DATA_PATH="/dss/dssmcmlfs01/pn34sa/pn34sa-dss-0000/robustness/VL_adapter/datasets/COCO"
-COCO_IMG_TRAIN_PATH="${BASE_COCO_DATA_PATH}/train2014/train2014"
-COCO_IMG_VAL_PATH="${BASE_COCO_DATA_PATH}/val2014"
-COCO_ANNO_PATH="${BASE_COCO_DATA_PATH}/annotations-2014/captions_val2014.json"
-COCO_KARPATHY_PATH="${BASE_COCO_DATA_PATH}/dataset_coco.json"
+BASE_DATA_PATH="/dss/dssmcmlfs01/pn34sa/pn34sa-dss-0000/robustness/VL_adapter/datasets/COCO"
+COCO_IMG_TRAIN_PATH="${BASE_DATA_PATH}/train2014/train2014"
+COCO_IMG_VAL_PATH="${BASE_DATA_PATH}/val2014"
+COCO_ANNO_PATH="${BASE_DATA_PATH}/annotations-2014/captions_val2014.json"
+COCO_KARPATHY_PATH="${BASE_DATA_PATH}/dataset_coco.json"
 
-VQAV2_IMG_TRAIN_PATH="${BASE_COCO_DATA_PATH}/train2014/train2014"
-VQAV2_ANNO_TRAIN_PATH="${BASE_COCO_DATA_PATH}/v2_mscoco_train2014_annotations.json"
-VQAV2_QUESTION_TRAIN_PATH="${BASE_COCO_DATA_PATH}/v2_OpenEnded_mscoco_train2014_questions.json"
-VQAV2_IMG_TEST_PATH="${BASE_COCO_DATA_PATH}/val2014"
-VQAV2_ANNO_TEST_PATH="${BASE_COCO_DATA_PATH}/v2_mscoco_val2014_annotations.json"
-VQAV2_QUESTION_TEST_PATH="${BASE_COCO_DATA_PATH}/v2_OpenEnded_mscoco_val2014_questions.json"
+VQAV2_IMG_TRAIN_PATH="${BASE_DATA_PATH}/train2014/train2014"
+VQAV2_ANNO_TRAIN_PATH="${BASE_DATA_PATH}/v2_mscoco_train2014_annotations.json"
+VQAV2_QUESTION_TRAIN_PATH="${BASE_DATA_PATH}/v2_OpenEnded_mscoco_train2014_questions.json"
+VQAV2_IMG_TEST_PATH="${BASE_DATA_PATH}/val2014"
+VQAV2_ANNO_TEST_PATH="${BASE_DATA_PATH}/v2_mscoco_val2014_annotations.json"
+VQAV2_QUESTION_TEST_PATH="${BASE_DATA_PATH}/v2_OpenEnded_mscoco_val2014_questions.json"
 
-
-BASE_DATA_PATH="/dss/dssmcmlfs01/pn34sa/pn34sa-dss-0000/robustness/datasets"
-OK_VQA_TRAIN_ANNO_PATH="${BASE_DATA_PATH}/okvqa/mscoco_train2014_annotations.json"
-OK_VQA_TRAIN_QUES_PATH="${BASE_DATA_PATH}/okvqa/OpenEnded_mscoco_train2014_questions.json"
-OK_VQA_VAL_ANNO_PATH="${BASE_DATA_PATH}/okvqa/mscoco_val2014_annotations.json"
-OK_VQA_VAL_QUES_PATH="${BASE_DATA_PATH}/okvqa/OpenEnded_mscoco_val2014_questions.json"
 
 # 9B
-CKPT_PATH="/dss/dssmcmlfs01/pn34sa/pn34sa-dss-0000/.cache/huggingface/hub/models--openflamingo--OpenFlamingo-9B-vitl-mpt7b/snapshots/e6e175603712c7007fe3b9c0d50bdcfbd83adfc2/checkpoint.pt"
-LM_MODEL="anas-awadalla/mpt-7b"
-CROSS_ATTN_EVERY_N_LAYERS=4
-# 4B
+#CKPT_PATH="/dss/dssmcmlfs01/pn34sa/pn34sa-dss-0000/.cache/huggingface/hub/models--openflamingo--OpenFlamingo-9B-vitl-mpt7b/snapshots/e6e175603712c7007fe3b9c0d50bdcfbd83adfc2/checkpoint.pt"
+#LM_MODEL="anas-awadalla/mpt-7b"
+#CROSS_ATTN_EVERY_N_LAYERS=4
+## 4B
 #CKPT_PATH="/dss/dssmcmlfs01/pn34sa/pn34sa-dss-0000/.cache/huggingface/hub/models--openflamingo--OpenFlamingo-4B-vitl-rpj3b-langinstruct/snapshots/ef1d867b2bdf3e0ffec6d9870a07e6bd51eb7e88/checkpoint.pt"
 #LM_MODEL="togethercomputer/RedPajama-INCITE-Instruct-3B-v1"
 #CROSS_ATTN_EVERY_N_LAYERS=2
-export CUDA_VISIBLE_DEVICES=0,1,2,3
+# 3B
+
+
+export CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7
 NUM_GPUs=`echo $CUDA_VISIBLE_DEVICES | grep -P -o '\d' | wc -l`
 TIMESTAMP=`date +"%Y-%m-%d-%T"`
-COMMENT="9B-reproduce-vqav2"
+COMMENT="4B-coco-vqav2-find-suitable-seed"
 RESULTS_FILE="results_${TIMESTAMP}_${COMMENT}.json"
 torchrun --nnodes=1 --nproc_per_node="$NUM_GPUs" open_flamingo/eval/evaluate.py \
     --vision_encoder_path ViT-L-14 \
@@ -42,35 +39,26 @@ torchrun --nnodes=1 --nproc_per_node="$NUM_GPUs" open_flamingo/eval/evaluate.py 
     --checkpoint_path ${CKPT_PATH} \
     --results_file ${RESULTS_FILE} \
     --precision amp_bf16 \
-    --batch_size 64 \
-    --num_trials 1 \
-    --shots 0 \
-    --trial_seeds 42 \
-    --demo_mode  "gold" \
-    --visual_demo_mode "random" \
+    --batch_size 2 \
+    --num_trials 5 \
+    --trial_seeds 52 62 72 82 92 \
     --eval_vqav2 \
+    --eval_coco \
+    --coco_train_image_dir_path ${COCO_IMG_TRAIN_PATH} \
+    --coco_val_image_dir_path ${COCO_IMG_VAL_PATH} \
+    --coco_karpathy_json_path ${COCO_KARPATHY_PATH} \
+    --coco_annotations_json_path ${COCO_ANNO_PATH} \
     --vqav2_train_image_dir_path ${VQAV2_IMG_TRAIN_PATH} \
     --vqav2_train_annotations_json_path ${VQAV2_ANNO_TRAIN_PATH} \
     --vqav2_train_questions_json_path ${VQAV2_QUESTION_TRAIN_PATH} \
     --vqav2_test_image_dir_path ${VQAV2_IMG_TEST_PATH} \
     --vqav2_test_annotations_json_path ${VQAV2_ANNO_TEST_PATH} \
     --vqav2_test_questions_json_path ${VQAV2_QUESTION_TEST_PATH}
-#    --eval_coco \
-#    --coco_train_image_dir_path ${COCO_IMG_TRAIN_PATH} \
-#    --coco_val_image_dir_path ${COCO_IMG_VAL_PATH} \
-#    --coco_karpathy_json_path ${COCO_KARPATHY_PATH} \
-#    --coco_annotations_json_path ${COCO_ANNO_PATH} \
-#    --eval_ok_vqa \
-#    --ok_vqa_train_image_dir_path ${COCO_IMG_TRAIN_PATH} \
-#    --ok_vqa_train_annotations_json_path ${OK_VQA_TRAIN_ANNO_PATH} \
-#    --ok_vqa_train_questions_json_path ${OK_VQA_TRAIN_QUES_PATH} \
-#    --ok_vqa_test_image_dir_path ${COCO_IMG_VAL_PATH} \
-#    --ok_vqa_test_annotations_json_path ${OK_VQA_VAL_ANNO_PATH} \
-#    --ok_vqa_test_questions_json_path ${OK_VQA_VAL_QUES_PATH} \
-#    --eval_hateful_memes \
-#    --hateful_memes_image_dir_path "/dss/dssmcmlfs01/pn34sa/pn34sa-dss-0000/robustness/datasets/hateful_memes/img" \
-#    --hateful_memes_train_annotations_json_path "/dss/dssmcmlfs01/pn34sa/pn34sa-dss-0000/robustness/datasets/hateful_memes/train.jsonl" \
-#    --hateful_memes_test_annotations_json_path "/dss/dssmcmlfs01/pn34sa/pn34sa-dss-0000/robustness/datasets/hateful_memes/dev.jsonl"
+
+
+#
+
+
 
 # --shots 16 32 \
 

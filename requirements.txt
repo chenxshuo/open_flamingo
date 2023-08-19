@@ -16,3 +16,6 @@ sentencepiece==0.1.98
 pycocoevalcap
 pycocotools
 open_clip_torch>=2.16.0
+
+# others
+random-word
