@@ -4,6 +4,7 @@
 
 import logging
 import huggingface_hub
+import os
 from open_flamingo import create_model_and_transforms
 from huggingface_hub import hf_hub_download
 import torch
@@ -14,6 +15,10 @@ logging.basicConfig(
 )
 
 logger = logging.getLogger(__name__)
+
+# export environment variables
+os.environ["HF_HOME"] = "/dss/dssmcmlfs01/pn34sa/pn34sa-dss-0000/.cache/huggingface"
+
 
 MODEL_DICT_9B = {
     "language": "anas-awadalla/mpt-7b",
@@ -28,12 +33,12 @@ MODEL_DICT_4B = {
 }
 
 MODEL_DICT_3B = {
-    "language": "anas-awadalla/mpt-1b-redpajama-200b",
-    "flamingo": "openflamingo/OpenFlamingo-3B-vitl-mpt1b",
-    "cross_attn_every_n_layers": 4
+    "language": "anas-awadalla/mpt-1b-redpajama-200b-dolly",
+    "flamingo": "openflamingo/OpenFlamingo-3B-vitl-mpt1b-langinstruct",
+    "cross_attn_every_n_layers": 1
 }
 
-MODEL = MODEL_DICT_3B
+MODEL = MODEL_DICT_9B
 
 model, image_processor, tokenizer = create_model_and_transforms(
     clip_vision_encoder_path="ViT-L-14",
