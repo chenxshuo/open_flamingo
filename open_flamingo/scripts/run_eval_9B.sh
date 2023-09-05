@@ -1,12 +1,12 @@
 #!/bin/bash
 export HF_HOME="/dss/dssmcmlfs01/pn34sa/pn34sa-dss-0000/.cache/huggingface"
 BASE_COCO_DATA_PATH="/dss/dssmcmlfs01/pn34sa/pn34sa-dss-0000/robustness/VL_adapter/datasets/COCO"
-COCO_IMG_TRAIN_PATH="${BASE_COCO_DATA_PATH}/train2014/train2014"
+COCO_IMG_TRAIN_PATH="${BASE_COCO_DATA_PATH}/train2014"
 COCO_IMG_VAL_PATH="${BASE_COCO_DATA_PATH}/val2014"
 COCO_ANNO_PATH="${BASE_COCO_DATA_PATH}/annotations-2014/captions_val2014.json"
 COCO_KARPATHY_PATH="${BASE_COCO_DATA_PATH}/dataset_coco.json"
 
-VQAV2_IMG_TRAIN_PATH="${BASE_COCO_DATA_PATH}/train2014/train2014"
+VQAV2_IMG_TRAIN_PATH="${BASE_COCO_DATA_PATH}/train2014"
 VQAV2_ANNO_TRAIN_PATH="${BASE_COCO_DATA_PATH}/v2_mscoco_train2014_annotations.json"
 VQAV2_QUESTION_TRAIN_PATH="${BASE_COCO_DATA_PATH}/v2_OpenEnded_mscoco_train2014_questions.json"
 VQAV2_IMG_TEST_PATH="${BASE_COCO_DATA_PATH}/val2014"

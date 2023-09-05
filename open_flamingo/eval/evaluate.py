@@ -590,6 +590,7 @@ def main():
                     seed=seed,
                     dataset_name="ok_vqa",
                     demo_mode=args.demo_mode,
+                    visual_demo_mode=args.visual_demo_mode,
                     cached_features=cached_features,
                 )
                 if args.rank == 0:
@@ -1076,7 +1077,7 @@ def evaluate_vqa(
     dataset_name: str = "vqav2",
     cached_features=None,
     demo_mode: str = "gold",
-    visual_demo_mode: str = "gold",
+    visual_demo_mode: str = "random",
 ):
     """
     Evaluate a model on VQA datasets. Currently supports VQA v2.0, OK-VQA, VizWiz and TextVQA.
