@@ -1,12 +1,12 @@
 #!/bin/bash
 export HF_HOME="/dss/dssmcmlfs01/pn34sa/pn34sa-dss-0000/.cache/huggingface"
 BASE_DATA_PATH="/dss/dssmcmlfs01/pn34sa/pn34sa-dss-0000/robustness/VL_adapter/datasets/COCO"
-COCO_IMG_TRAIN_PATH="${BASE_DATA_PATH}/train2014/train2014"
+COCO_IMG_TRAIN_PATH="${BASE_DATA_PATH}/train2014"
 COCO_IMG_VAL_PATH="${BASE_DATA_PATH}/val2014"
 COCO_ANNO_PATH="${BASE_DATA_PATH}/annotations-2014/captions_val2014.json"
 COCO_KARPATHY_PATH="${BASE_DATA_PATH}/dataset_coco.json"
 
-VQAV2_IMG_TRAIN_PATH="${BASE_DATA_PATH}/train2014/train2014"
+VQAV2_IMG_TRAIN_PATH="${BASE_DATA_PATH}/train2014"
 VQAV2_ANNO_TRAIN_PATH="${BASE_DATA_PATH}/v2_mscoco_train2014_annotations.json"
 VQAV2_QUESTION_TRAIN_PATH="${BASE_DATA_PATH}/v2_OpenEnded_mscoco_train2014_questions.json"
 VQAV2_IMG_TEST_PATH="${BASE_DATA_PATH}/val2014"
@@ -21,15 +21,16 @@ CKPT_PATH="/dss/dssmcmlfs01/pn34sa/pn34sa-dss-0000/.cache/huggingface/hub/models
 LM_MODEL="togethercomputer/RedPajama-INCITE-Instruct-3B-v1"
 CROSS_ATTN_EVERY_N_LAYERS=2
 
-export CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7
+export CUDA_VISIBLE_DEVICES=0
 NUM_GPUs=`echo $CUDA_VISIBLE_DEVICES | grep -P -o '\d' | wc -l`
 TIMESTAMP=`date +"%Y-%m-%d-%T"`
-MODE="gold"
+MODE="only_labels"
+#MODE="fixed_pseudo_question_length"
 VISUAL_MODE="same_category"
 COMMENT="4B-vqav2-$MODE-$VISUAL_MODE"
 
 RESULTS_FILE="results_${TIMESTAMP}_${COMMENT}.json"
-torchrun --nnodes=1 --nproc_per_node="$NUM_GPUs" --master_port=26002 open_flamingo/eval/evaluate.py \
+torchrun --nnodes=1 --nproc_per_node="$NUM_GPUs" --master_port=26000 open_flamingo/eval/evaluate.py \
     --vision_encoder_path ViT-L-14 \
     --vision_encoder_pretrained openai\
     --lm_path ${LM_MODEL} \
@@ -40,7 +41,7 @@ torchrun --nnodes=1 --nproc_per_node="$NUM_GPUs" --master_port=26002 open_flamin
     --precision amp_bf16 \
     --batch_size 8 \
     --num_trials 1 \
-    --shots 4 8 16 \
+    --shots 8 \
     --trial_seeds 42 \
     --demo_mode  $MODE \
     --visual_demo_mode $VISUAL_MODE \
