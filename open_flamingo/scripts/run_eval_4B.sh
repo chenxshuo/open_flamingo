@@ -23,10 +23,10 @@ CKPT_PATH="/dss/dssmcmlfs01/pn34sa/pn34sa-dss-0000/.cache/huggingface/hub/models
 LM_MODEL="togethercomputer/RedPajama-INCITE-Instruct-3B-v1"
 CROSS_ATTN_EVERY_N_LAYERS=2
 
-export CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7
+export CUDA_VISIBLE_DEVICES=0,1,2,3
 NUM_GPUs=`echo $CUDA_VISIBLE_DEVICES | grep -P -o '\d' | wc -l`
 TIMESTAMP=`date +"%Y-%m-%d-%T"`
-COMMENT="4B-coco-vqav2-find-suitable-seed"
+COMMENT="4B-reproduce-vqav2"
 RESULTS_FILE="results_${TIMESTAMP}_${COMMENT}.json"
 torchrun --nnodes=1 --nproc_per_node="$NUM_GPUs" open_flamingo/eval/evaluate.py \
     --vision_encoder_path ViT-L-14 \
@@ -37,15 +37,13 @@ torchrun --nnodes=1 --nproc_per_node="$NUM_GPUs" open_flamingo/eval/evaluate.py 
     --checkpoint_path ${CKPT_PATH} \
     --results_file ${RESULTS_FILE} \
     --precision amp_bf16 \
-    --batch_size 2 \
-    --num_trials 5 \
-    --trial_seeds 52 62 72 82 92 \
+    --batch_size 128 \
+    --num_trials 1 \
+    --trial_seeds 52 \
+    --shots 0 \
+    --demo_mode  "gold" \
+    --visual_demo_mode "random" \
     --eval_vqav2 \
-    --eval_coco \
-    --coco_train_image_dir_path ${COCO_IMG_TRAIN_PATH} \
-    --coco_val_image_dir_path ${COCO_IMG_VAL_PATH} \
-    --coco_karpathy_json_path ${COCO_KARPATHY_PATH} \
-    --coco_annotations_json_path ${COCO_ANNO_PATH} \
     --vqav2_train_image_dir_path ${VQAV2_IMG_TRAIN_PATH} \
     --vqav2_train_annotations_json_path ${VQAV2_ANNO_TRAIN_PATH} \
     --vqav2_train_questions_json_path ${VQAV2_QUESTION_TRAIN_PATH} \
@@ -53,7 +51,11 @@ torchrun --nnodes=1 --nproc_per_node="$NUM_GPUs" open_flamingo/eval/evaluate.py 
     --vqav2_test_annotations_json_path ${VQAV2_ANNO_TEST_PATH} \
     --vqav2_test_questions_json_path ${VQAV2_QUESTION_TEST_PATH}
 
-
+#--eval_coco \
+#    --coco_train_image_dir_path ${COCO_IMG_TRAIN_PATH} \
+#    --coco_val_image_dir_path ${COCO_IMG_VAL_PATH} \
+#    --coco_karpathy_json_path ${COCO_KARPATHY_PATH} \
+#    --coco_annotations_json_path ${COCO_ANNO_PATH} \
 #
 
 
