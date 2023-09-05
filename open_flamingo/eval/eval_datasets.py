@@ -40,10 +40,12 @@ def assert_vqa_dem_mode(mode):
         "random_words_as_labels", # v
         "random_outer_label_as_labels", # r
         "random_label_for_same_question_type_as_labels", # v
-        "random_label_for_same_question_as_labels", # r
+        "random_label_for_same_question_as_labels", # r,
+        "no_question_random_label_for_same_question_as_labels",
         "ood_inputs", # r
         "random_strings_inputs", # v
         "random_question_inputs", # v
+        "fixed_pseudo_question_length"
     ]
 
 def assert_caption_dem_mode(mode):
@@ -122,7 +124,7 @@ class CaptionDatasetTR(CaptionDataset):
             caption = annotation["sentences"][0]["raw"]
             self.label_space.add(caption)
         self.label_space = list(self.label_space)
-        with open("label_space_caption.txt", "w") as f:
+        with open("generated_data_information/label_space_caption.txt", "w") as f:
             for label in self.label_space:
                 f.write(label + "\n")
 
@@ -216,7 +218,7 @@ class VQADatasetDiffDemoForm(VQADataset):
     """
     ...
 
-    def __init__(self, seed, mode="gold", visual_demo_mode="random", *args, **kwargs):
+    def __init__(self, seed, mode="gold", visual_demo_mode="random", arguments=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
         random.seed(seed)
         assert_vqa_dem_mode(mode)
@@ -232,21 +234,29 @@ class VQADatasetDiffDemoForm(VQADataset):
             self.init_outer_label_space()
 
         if self.mode == "random_label_for_same_question_type_as_labels":
-            with open("vqa2_question_type_to_ans.json", "r") as f:
+            with open("generated_data_information/vqa2_question_type_to_ans.json", "r") as f:
                 self.label_space_for_same_question_type = json.load(f)
 
-        if self.mode == "random_label_for_same_question_as_labels":
-            with open(f"vqa2_que2ans.json", "r") as f:
+        if self.mode == "random_label_for_same_question_as_labels" or self.mode == "no_question_random_label_for_same_question_as_labels":
+            with open(f"generated_data_information/vqa2_que2ans.json", "r") as f:
                 self.label_space_for_same_question = json.load(f)
 
         if self.mode == "random_question_inputs":
-            with open(f"vqa2_que2ans.json", "r") as f:
+            with open(f"generated_data_information/vqa2_que2ans.json", "r") as f:
                 self.question_space = json.load(f)
+
+        if self.mode == "fixed_pseudo_question_length":
+            # replace the original question by a space string with a given length
+            assert arguments is not None
+            assert arguments.question_length is not None
+            self.question_length = arguments.question_length
 
         #TODO
         self.visual_demo_mode = visual_demo_mode
         logger.info(f"VQA ICL visual demo mode: {self.visual_demo_mode}")
         self.img_to_ques_and_ans = self._load_img_to_ques_and_ans()
+        if self.visual_demo_mode == "different_number_of_objects":
+            self.number_of_objects_to_img = self._load_number_of_objects_to_img()
 
 
     def init_outer_label_space(self):
@@ -259,7 +269,7 @@ class VQADatasetDiffDemoForm(VQADataset):
             for a in ans:
                 self.outer_label_space.add(a)
         self.outer_label_space = list(self.outer_label_space)
-        with open("label_space_vqa.txt", "w") as f:
+        with open("generated_data_information/label_space_vqa.txt", "w") as f:
             f.write("\n".join(self.outer_label_space))
 
     def _load_ood_dataset(self):
@@ -270,9 +280,16 @@ class VQADatasetDiffDemoForm(VQADataset):
     def get_ques_and_ans_by_img(self, img_file_name):
         return self.img_to_ques_and_ans[img_file_name]
 
+    def get_img_file_list_by_number_of_objects(self, number_of_objects):
+        return self.number_of_objects_to_img[str(number_of_objects)]
+
     @staticmethod
     def _load_img_to_ques_and_ans():
-        return json.load(open("vqa2_img_to_ques_and_ans.json", "r"))
+        return json.load(open("generated_data_information/vqa2_img_to_ques_and_ans.json", "r"))
+
+    @staticmethod
+    def _load_number_of_objects_to_img():
+        return json.load(open("generated_data_information/COCO_TRAIN_2014_NUMBER_OF_OBJECTS_TO_JPEG.json", "r"))
 
     def __getitem__(self, item):
         # results =
@@ -294,6 +311,7 @@ class VQADatasetDiffDemoForm(VQADataset):
 
         if self.mode == "only_labels":
             results["question"] = ""
+            # logger.critical(f"Only labels question:{results['question']}; and labels {results['answers']}")
             return results
 
         if self.mode == "random_strings_as_labels":
@@ -339,6 +357,15 @@ class VQADatasetDiffDemoForm(VQADataset):
             results["answers"] = random_answers
             return results
 
+        if self.mode == "no_question_random_label_for_same_question_as_labels":
+            ori_answers = results["answers"]
+            random_answers = []
+            for _ in ori_answers:
+                random_answers.append(random.choice(self.label_space_for_same_question[results["question"]]))
+            results["answers"] = random_answers
+            results["question"] = ""
+            return results
+
         if self.mode == "ood_inputs":
             random_input = random.choice(self.ood_dataset)
             results["question"] = random_input
@@ -352,6 +379,11 @@ class VQADatasetDiffDemoForm(VQADataset):
         if self.mode == "random_question_inputs":
             random_input = random.choice(list(self.question_space.keys()))
             results["question"] = random_input
+            return results
+
+        if self.mode == "fixed_pseudo_question_length":
+            results["question"] = " " * self.question_length
+            logger.critical(f"Fixed pseudo question:{results['question']}with length {self.question_length} and label {results['answers']}")
             return results
 
 class ImageNetDataset(ImageFolder):

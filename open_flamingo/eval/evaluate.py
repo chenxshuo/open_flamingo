@@ -71,10 +71,19 @@ parser.add_argument(
              "random_outer_label_as_labels",
              "random_label_for_same_question_type_as_labels",
              "random_label_for_same_question_as_labels",
+             "no_question_random_label_for_same_question_as_labels",
              "ood_inputs",
              "random_strings_inputs",
              "random_question_inputs",
+             "fixed_pseudo_question_length",
            ]
+)
+
+parser.add_argument(
+    "--question_length",
+    type=int,
+    default=100,
+    help="Question length for fixed_pseudo_question_length demo mode.",
 )
 
 parser.add_argument(
@@ -85,10 +94,29 @@ parser.add_argument(
     choices=[None,
              "random", # random images demo
              "same_category", # same category images demo
+             "different_number_of_objects", # different number of objects demo
+             "no_images", # no images in demo
              ]
-
-
 )
+
+parser.add_argument(
+    "--number_of_objects_in_demos",
+    type=int,
+    default=None, # None means no number specified and should raise error if
+                  # visual_demo_mode==different_number_of_objects; -1 means randomly sampled from 1 to 10
+    help="Number of objects in demos; only used when `visual_demo_mode==different_number_of_objects`. ",
+)
+
+#TODO seems ugly
+parser.add_argument(
+    "--specify_number_of_objects_in_demos",
+    type=str,
+    default=None,
+    help="Specify number of objects in demos;"
+         "format like '0.5-2;0.5-4'  half images with 2 objects; half images with 4 objects"
+         "only used when `visual_demo_mode==different_number_of_objects`. ",
+)
+
 
 parser.add_argument(
     "--model",
@@ -1110,6 +1138,7 @@ def evaluate_vqa(
             visual_demo_mode=visual_demo_mode,
             is_train=True,
             dataset_name=dataset_name,
+            arguments=args,
         )
     else:
         train_dataset = VQADataset(
@@ -1157,8 +1186,8 @@ def evaluate_vqa(
     )  # make sure each worker has a different seed for the random context samples
     random.seed(seed + args.rank)
     coco = COCO(f"{COCO_PATH}/annotations-2014/instances_train2014.json")
-    jpeg_train_to_info = json.load(open("COCO_TRAIN_2014_JPEG_TO_INFO.json"))
-    jpeg_val_to_info = json.load(open("COCO_VAL_2014_JPEG_TO_INFO.json"))
+    jpeg_train_to_info = json.load(open("generated_data_information/COCO_TRAIN_2014_JPEG_TO_INFO.json"))
+    jpeg_val_to_info = json.load(open("generated_data_information/COCO_VAL_2014_JPEG_TO_INFO.json"))
     for batch in tqdm(
         test_dataloader,
         desc=f"Running inference {dataset_name}",
@@ -1282,7 +1311,7 @@ def prepare_vqa_batch(
         jpeg_val_to_info,
         rices_dataset
 ):
-    assert visual_demo_mode in ["random", "same_category"], (
+    assert visual_demo_mode in ["random", "same_category", "different_number_of_objects", "no_images"], (
         f"Unsupported visual demo mode: {visual_demo_mode}"
     )
     if visual_demo_mode == "random":
@@ -1360,6 +1389,94 @@ def prepare_vqa_batch(
             )
         # assert False
         return batch_images, batch_text
+    elif visual_demo_mode == "different_number_of_objects":
+        assert args.number_of_objects_in_demos is not None, (
+            "Please specify the number of objects in demos "
+        )
+        assert args.number_of_objects_in_demos >= 0, (
+            "The number of objects in demos must be non-negative now. "
+            "We will support negative number of objects (randomly sampling) in demos in the future."
+        )
+        assert num_shots > 0
+        batch_images = []
+        batch_text = []
+
+        for i in range(len(batch["image"])):
+            if args.specify_number_of_objects_in_demos is None:
+                img_file_names = random.sample(
+                    dataset.get_img_file_list_by_number_of_objects(args.number_of_objects_in_demos),
+                    num_shots,
+                )
+            else:
+                img_file_names = []
+                check_ratio = 0.0
+                for ratio_number in args.specify_number_of_objects_in_demos.split(";"):
+                    ratio, number = ratio_number.split("-")
+                    logger.critical(f"ratio: {ratio}, number: {number}")
+                    check_ratio += float(ratio)
+                    if float(ratio) == 0.0:
+                        continue
+                    img_file_names.extend(random.sample(
+                        dataset.get_img_file_list_by_number_of_objects(int(number)),
+                        int(num_shots * float(ratio))
+                        )
+                    )
+                assert check_ratio == 1.0, (
+                    f"The sum of ratios must be 1.0, but now it is {check_ratio}"
+                )
+            # logger.critical(f"Context Images: {img_file_names}")
+            # assert False
+            # logger.critical(f"Context Images: {img_file_names}")
+            context_images = []
+            for image_file_name in img_file_names:
+                img_path = os.path.join(dataset.image_dir_path, image_file_name)
+                img = Image.open(img_path)
+                img.load()
+                context_images.append(img)
+            batch_images.append(context_images + [batch["image"][i]])
+            context_text = "".join(
+                [
+                    eval_model.get_vqa_prompt(
+                        question=x[0][0], answer=x[0][1][0]
+                    )
+                    for x in [dataset.get_ques_and_ans_by_img(image_file_name) for image_file_name in
+                              img_file_names]
+                ]
+            )
+            # logger.critical(f"Context text: {context_text}")
+            batch_text.append(
+                context_text + eval_model.get_vqa_prompt(question=batch["question"][i])
+            )
+        return batch_images, batch_text
+
+    elif visual_demo_mode == "no_images":
+        batch_demo_samples = utils.sample_batch_demos_from_query_set(
+            query_set, effective_num_shots, len(batch["image"])
+        )
+
+        batch_images, batch_text = [], []
+        for i in range(len(batch["image"])):
+            batch_images.append([] + [batch["image"][i]])
+            context_text = "".join(
+                [
+                    eval_model.get_vqa_prompt(
+                        question=x["question"], answer=x["answers"][0]
+                    )
+                    + "\n"
+                    for x in batch_demo_samples[i]
+                ]
+            )
+            # Keep the text but remove the image tags for the no_images case
+            context_text = context_text.replace("<image>", "")
+            batch_text.append(
+                context_text + eval_model.get_vqa_prompt(question=batch["question"][i])
+            )
+        # logger.critical(f"batch_text: {batch_text}"
+        #                 f"batch_images: {batch_images}")
+        # assert False
+        return batch_images, batch_text
+    else:
+        raise ValueError(f"Unknown visual demo mode: {visual_demo_mode}")
 
 
 def get_contained_category(image_file_name, jpeg_train_to_info, jpeg_val_to_info):
