@@ -77,7 +77,7 @@ def save_ques_to_ans_and_ques_type_to_ans():
     for q in que2ans:
         que2ans[q] = list(que2ans[q])
 
-    with open("vqa2_que2ans.json", "w") as f:
+    with open("generated_data_information/vqa2_que2ans.json", "w") as f:
         f.write(json.dumps(que2ans))
     question_type_to_ans = defaultdict(set)
     for anno in val_annos:
@@ -88,11 +88,11 @@ def save_ques_to_ans_and_ques_type_to_ans():
     for q in question_type_to_ans:
         question_type_to_ans[q] = list(question_type_to_ans[q])
 
-    with open("vqa2_question_type_to_ans.json", "w") as f:
+    with open("generated_data_information/vqa2_question_type_to_ans.json", "w") as f:
         f.write(json.dumps(question_type_to_ans))
 
 
-def save_image_to_ques_and_ans():
+def save_image_to_ques_and_ans(split="train"):
     with open(JSON_PATH_ANNO_VAL, "r") as f:
         val_annos = json.load(f)
     with open(JSON_PATH_ANNO_TRAIN, "r") as f:
@@ -117,25 +117,57 @@ def save_image_to_ques_and_ans():
     #   "COCO_train2014_000000391895.jpg": [question1, question2, ...],
     # }
     img_to_ques = {}
-
-    for anno, que in zip(train_annos, train_questions):
-        img_name = f"COCO_train2014_{str(anno['image_id']).zfill(12)}.jpg"
-        que = que["question"]
-        ans = [ans["answer"] for ans in anno["answers"]]
-        img_to_ques[img_name] = img_to_ques.get(img_name, []) + [(que, ans)]
-
-    with open("vqa2_img_to_ques_and_ans.json", "w") as f:
+    if split == "train":
+        for anno, que in zip(train_annos, train_questions):
+            img_name = f"COCO_train2014_{str(anno['image_id']).zfill(12)}.jpg"
+            que = que["question"]
+            ans = [ans["answer"] for ans in anno["answers"]]
+            img_to_ques[img_name] = img_to_ques.get(img_name, []) + [(que, ans)]
+    elif split == "val":
+        for anno, que in zip(val_annos, val_questions):
+            img_name = f"COCO_val2014_{str(anno['image_id']).zfill(12)}.jpg"
+            que = que["question"]
+            ans = [ans["answer"] for ans in anno["answers"]]
+            img_to_ques[img_name] = img_to_ques.get(img_name, []) + [(que, ans)]
+    with open(f"generated_data_information/vqa2_{split}_img_to_ques_and_ans.json", "w") as f:
         f.write(json.dumps(img_to_ques))
 
 def check_image_to_ques_and_ans():
-    with open("vqa2_img_to_ques_and_ans.json", "r") as f:
+    with open("generated_data_information/vqa2_img_to_ques_and_ans.json", "r") as f:
         img_to_ques = json.load(f)
     print("len(img_to_ques):", len(img_to_ques))
-    print(img_to_ques[list(img_to_ques.keys())[0]])
+    keys_list = list(img_to_ques.keys())[:8]
+    for k in keys_list:
+        print(f"{k} :", img_to_ques[k])
+
+    with open("generated_data_information/vqa2_val_img_to_ques_and_ans.json", "r") as f:
+        val_img_to_ques = json.load(f)
+    print("len(val_img_to_ques):", len(val_img_to_ques))
+    keys_list = list(val_img_to_ques.keys())[:2]
+    for k in keys_list:
+        print(f"{k} :", val_img_to_ques[k])
+
+
+
+def check_ques_to_ans_and_ques_type_to_ans():
+    ques_to_ans = json.load(open("generated_data_information/vqa2_que2ans.json", "r"))
+    print("len(ques_to_ans):", len(ques_to_ans))
+    keys_list = list(ques_to_ans.keys())[:8]
+    for k in keys_list:
+        print(f"{k} :", ques_to_ans[k])
+
+    question_type_to_ans = json.load(open("generated_data_information/vqa2_question_type_to_ans.json", "r"))
+    print("len(question_type_to_ans):", len(question_type_to_ans))
+    keys_list = list(question_type_to_ans.keys())[:1]
+    # for k in keys_list:
+    #     print(f"{k} :", question_type_to_ans[k])
+    # q
+
 
 if __name__ == "__main__":
     # check_vqa_format()
     # save_ques_to_ans_and_ques_type_to_ans()
-    # save_image_to_ques_and_ans()
+    # save_image_to_ques_and_ans(split="val")
 
-    check_image_to_ques_and_ans()
+    # check_image_to_ques_and_ans()
+    check_ques_to_ans_and_ques_type_to_ans()

@@ -7,6 +7,7 @@ import logging
 import json
 from tqdm import tqdm
 import numpy as np
+from collections import defaultdict
 logger = logging.getLogger(__name__)
 
 
@@ -54,7 +55,7 @@ def generate_jpeg_to_info(val_or_train="val"):
             new_anno[k] = anno[k]
         JPEG_TO_INFO[file_name]["annotations"].append(new_anno)
 
-    with open(f"COCO_{VAL_OR_TRAIN.upper()}_2014_JPEG_TO_INFO.json", "w") as f:
+    with open(f"generated_data_information/COCO_{VAL_OR_TRAIN.upper()}_2014_JPEG_TO_INFO.json", "w") as f:
         f.write(json.dumps(JPEG_TO_INFO))
 
 
@@ -66,15 +67,36 @@ def check_generated_jpeg_to_info():
     for k in one_jpeg_to_info.keys():
         print(k, one_jpeg_to_info[k])
 
-def check_number_of_objects():
+def generate_number_of_objects_to_jpeg():
     # check the length of bbox and category_id
-    PATH="/dss/dssmcmlfs01/pn34sa/pn34sa-dss-0000/robustness/in-context-open-flamingo/open_flamingo_2-0/COCO_TRAIN_2014_JPEG_TO_INFO.json"
+    PATH="/dss/dssmcmlfs01/pn34sa/pn34sa-dss-0000/robustness/in-context-open-flamingo/open_flamingo_2-0/generated_data_information/COCO_TRAIN_2014_JPEG_TO_INFO.json"
     jpeg_to_info = json.load(open(PATH, "r"))
+    number_of_objects_to_jpeg = defaultdict(list)
     for k in jpeg_to_info.keys():
         img = jpeg_to_info[k]
-        if "iscrowd" in img:
-            if img["iscrowd"] == 1:
-                print(k, img["bbox"], img["category_id"])
+        number_of_objects_to_jpeg[len(img["annotations"])].append(k)
+        # if len(img["annotations"]) > 1:
+        #     for anno in img["annotations"]:
+        #         print(k, anno["bbox"], anno["category_id"])
+            # if "iscrowd" in anno:
+            #     if anno["iscrowd"] == 1:
+            #         print(k, anno["bbox"], anno["category_id"])
+
+    print(f"length of training dataset is {len(jpeg_to_info.keys())}")
+    # with open("generated_data_information/COCO_TRAIN_2014_NUMBER_OF_OBJECTS_TO_JPEG.json", "w") as f:
+    #     f.write(json.dumps(number_of_objects_to_jpeg))
+    # for k in number_of_objects_to_jpeg.keys():
+    #     print(f"number of objects {k}: {len(number_of_objects_to_jpeg[k])}")
+    ordered_tuples = sorted(number_of_objects_to_jpeg.items(), key=lambda x: x[0])
+    for k, v in ordered_tuples:
+        print(f"number of objects {k}: {len(v)}")
+
+
+def check_number_of_objects_in_jpeg(file_name):
+    with open("/dss/dssmcmlfs01/pn34sa/pn34sa-dss-0000/robustness/in-context-open-flamingo/open_flamingo_2-0/generated_data_information/COCO_TRAIN_2014_JPEG_TO_INFO.json", "r") as f:
+        jpeg_to_info = json.load(f)
+    print(f"number of objects {len(jpeg_to_info[file_name]['annotations'])}")
+
 
 def check_scene_graph():
     PATH = "/dss/dssmcmlfs01/pn34sa/pn34sa-dss-0000/robustness/datasets/coco_scene_graphs/image_scene_graph/coco_pred_sg/359451.npy"
@@ -86,8 +108,10 @@ def check_scene_graph():
     print(one_sentence_scene_graph)
 
 if __name__ == "__main__":
-    check_generated_jpeg_to_info()
+    # check_generated_jpeg_to_info()
     # check_scene_graph()
     # check_number_of_objects()
     # generate_jpeg_to_info("train")
     # generate_jpeg_to_info("val")
+    generate_number_of_objects_to_jpeg()
+    # check_number_of_objects_in_jpeg("COCO_train2014_000000567572.jpg")
