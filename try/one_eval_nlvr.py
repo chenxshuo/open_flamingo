@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-"""Init a OF-9B-2.0 Model and run a generation task."""
+"""Try on NLVR, paired-image input."""
 
 import logging
 import huggingface_hub
@@ -16,15 +16,9 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
-HF_HOME = "/dss/dssmcmlfs01/pn34sa/pn34sa-dss-0000/.cache/huggingface"
-if os.path.exists(HF_HOME):
-    os.environ["HF_HOME"] = HF_HOME
-else:
-    # export environment variables
-    os.environ["HF_HOME"] = "/mnt/.cache/huggingface"
-logger.info(f"HF_HOME: {os.environ['HF_HOME']}")
+# export environment variables
+os.environ["HF_HOME"] = "/dss/dssmcmlfs01/pn34sa/pn34sa-dss-0000/.cache/huggingface"
 
-device = torch.device("cuda:0")
 
 MODEL_DICT_9B = {
     "language": "anas-awadalla/mpt-7b",
@@ -60,7 +54,7 @@ huggingface_hub.login(
 )
 checkpoint_path = hf_hub_download(MODEL["flamingo"], "checkpoint.pt")
 model.load_state_dict(torch.load(checkpoint_path), strict=False)
-model.to(device)
+
 from PIL import Image
 import requests
 
@@ -95,13 +89,9 @@ Details: For OpenFlamingo, we expect the image to be a torch tensor of shape
  In this case batch_size = 1, num_media = 3, num_frames = 1,
  channels = 3, height = 224, width = 224.
 """
-
-BS = 32
 vision_x = [image_processor(demo_image_one).unsqueeze(0), image_processor(demo_image_two).unsqueeze(0), image_processor(query_image).unsqueeze(0)]
 vision_x = torch.cat(vision_x, dim=0)
 vision_x = vision_x.unsqueeze(1).unsqueeze(0)
-# duplicate along the batch dimension
-vision_x = vision_x.expand(BS, -1, -1, -1, -1, -1)
 
 """
 Step 3: Preprocessing text
@@ -114,15 +104,11 @@ lang_x = tokenizer(
     ["<image>An image of two dogs.<|endofchunk|><image>An image of a basketball.<|endofchunk|><image>An image of"],
     return_tensors="pt",
 )
-# duplicate along the batch dimension
-lang_x = {k: v.expand(BS, -1) for k, v in lang_x.items()}
+
 
 """
 Step 4: Generate text
 """
-vision_x = vision_x.to(device)
-lang_x = {k: v.to(device) for k, v in lang_x.items()}
-
 generated_text = model.generate(
     vision_x=vision_x,
     lang_x=lang_x["input_ids"],
@@ -130,6 +116,5 @@ generated_text = model.generate(
     max_new_tokens=20,
     num_beams=3,
 )
-for i in range(BS):
-    print("Generated text: ", tokenizer.decode(generated_text[i]))
-# print("Generated text: ", tokenizer.decode(generated_text[0]))
+
+print("Generated text: ", tokenizer.decode(generated_text[0]))

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-"""Init a OF-9B-2.0 Model and run a generation task."""
+"""Deepspeed."""
 
 import logging
 import huggingface_hub
@@ -8,6 +8,7 @@ import os
 from open_flamingo import create_model_and_transforms
 from huggingface_hub import hf_hub_download
 import torch
+import deepspeed
 
 logging.basicConfig(
     level=logging.DEBUG,
@@ -16,15 +17,11 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
-HF_HOME = "/dss/dssmcmlfs01/pn34sa/pn34sa-dss-0000/.cache/huggingface"
-if os.path.exists(HF_HOME):
-    os.environ["HF_HOME"] = HF_HOME
-else:
-    # export environment variables
-    os.environ["HF_HOME"] = "/mnt/.cache/huggingface"
-logger.info(f"HF_HOME: {os.environ['HF_HOME']}")
+# export environment variables
+os.environ["HF_HOME"] = "/mnt/.cache/huggingface"
 
-device = torch.device("cuda:0")
+local_rank = int(os.getenv('LOCAL_RANK', '0'))
+world_size = int(os.getenv('WORLD_SIZE', '1'))
 
 MODEL_DICT_9B = {
     "language": "anas-awadalla/mpt-7b",
@@ -54,13 +51,25 @@ model, image_processor, tokenizer = create_model_and_transforms(
     cross_attn_every_n_layers=MODEL["cross_attn_every_n_layers"],
 )
 
+
+CKPT_PATH="/dss/dssmcmlfs01/pn34sa/pn34sa-dss-0000/.cache/huggingface/hub/models--openflamingo--OpenFlamingo-9B-vitl-mpt7b/snapshots/e6e175603712c7007fe3b9c0d50bdcfbd83adfc2/checkpoint.pt"
 # grab model checkpoint from huggingface hub
-huggingface_hub.login(
-    token="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"
+# huggingface_hub.login(
+#     token="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"
+# )
+# checkpoint_path = hf_hub_download(MODEL["flamingo"], "checkpoint.pt")
+# model.load_state_dict(torch.load(checkpoint_path), strict=False)
+
+ds_engine = deepspeed.init_inference(
+    model,
+    mp_size=world_size,
+    dtype=torch.float32,
+    replace_with_kernel_inject=True,
+    checkpoint=CKPT_PATH,
 )
-checkpoint_path = hf_hub_download(MODEL["flamingo"], "checkpoint.pt")
-model.load_state_dict(torch.load(checkpoint_path), strict=False)
-model.to(device)
+
+
+
 from PIL import Image
 import requests
 
@@ -87,7 +96,7 @@ query_image = Image.open(
     ).raw
 )
 
-
+BS = 64
 """
 Step 2: Preprocessing images
 Details: For OpenFlamingo, we expect the image to be a torch tensor of shape 
@@ -95,12 +104,9 @@ Details: For OpenFlamingo, we expect the image to be a torch tensor of shape
  In this case batch_size = 1, num_media = 3, num_frames = 1,
  channels = 3, height = 224, width = 224.
 """
-
-BS = 32
 vision_x = [image_processor(demo_image_one).unsqueeze(0), image_processor(demo_image_two).unsqueeze(0), image_processor(query_image).unsqueeze(0)]
 vision_x = torch.cat(vision_x, dim=0)
 vision_x = vision_x.unsqueeze(1).unsqueeze(0)
-# duplicate along the batch dimension
 vision_x = vision_x.expand(BS, -1, -1, -1, -1, -1)
 
 """
@@ -117,9 +123,13 @@ lang_x = tokenizer(
 # duplicate along the batch dimension
 lang_x = {k: v.expand(BS, -1) for k, v in lang_x.items()}
 
+
+
 """
 Step 4: Generate text
 """
+model = ds_engine.module
+device = torch.device(f"cuda:{local_rank}" if torch.cuda.is_available() else "cpu")
 vision_x = vision_x.to(device)
 lang_x = {k: v.to(device) for k, v in lang_x.items()}
 
@@ -130,6 +140,7 @@ generated_text = model.generate(
     max_new_tokens=20,
     num_beams=3,
 )
+
 for i in range(BS):
     print("Generated text: ", tokenizer.decode(generated_text[i]))
 # print("Generated text: ", tokenizer.decode(generated_text[0]))
