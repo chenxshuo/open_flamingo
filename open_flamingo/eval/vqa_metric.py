@@ -22,6 +22,30 @@ import sys
 # Help on each function can be accessed by: "help(COCO.function)"
 
 
+def compute_gqa_accuracy(result_file, annotation_file):
+    # simple pattern matching for GQA evaluation
+    score = 0.0
+    results = json.load(open(result_file, "r"))
+    annotations = json.load(open(annotation_file, "r"))
+    predict_que2ans = {}
+    for result in results:
+        predict_que2ans[result["question_id"]] = result["answer"]
+    gt_que2ans = {}
+    for annotation in annotations["annotations"]:
+        ques_id = annotation["question_id"]
+        ans = annotation["answers"][0]["answer"]
+        gt_que2ans[ques_id] = ans
+
+    for ques_id, ans in gt_que2ans.items():
+        if ques_id in predict_que2ans:
+            if ans == predict_que2ans[ques_id]:
+                score += 1.0
+    score /= len(gt_que2ans)
+    score = score * 100
+    return score
+
+
+
 class VQA:
     def __init__(self, annotation_file=None, question_file=None):
         """

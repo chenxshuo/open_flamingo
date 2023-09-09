@@ -179,6 +179,8 @@ class VQADataset(Dataset):
             return os.path.join(self.image_dir_path, question["image_id"])
         elif self.dataset_name == "textvqa":
             return os.path.join(self.image_dir_path, f"{question['image_id']}.jpg")
+        elif self.dataset_name == "gqa":
+            return os.path.join(self.image_dir_path, f"{question['image_id']}.jpg")
         else:
             raise Exception(f"Unknown VQA dataset {self.dataset_name}")
 
@@ -197,7 +199,8 @@ class VQADataset(Dataset):
             answers = self.answers[idx]
             # logger.info(f"answers: {answers}")
             results["answers"] = [a["answer"] for a in answers["answers"]]
-            results["question_type"] = answers["question_type"]
+            if "question_type" in answers:
+                results["question_type"] = answers["question_type"]
         # results =
         # {"image": image,
         #  "question": "Where is he looking",

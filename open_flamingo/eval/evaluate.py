@@ -40,7 +40,7 @@ from eval_model import BaseEvalModel
 
 from ok_vqa_utils import postprocess_ok_vqa_generation
 from open_flamingo.src.flamingo import Flamingo
-from vqa_metric import compute_vqa_accuracy, postprocess_vqa_generation
+from vqa_metric import compute_vqa_accuracy, compute_gqa_accuracy, postprocess_vqa_generation
 
 from open_flamingo.train.distributed import init_distributed_device, world_info_from_env
 
@@ -49,9 +49,9 @@ logging.basicConfig(
     format='[%(levelname)s:%(asctime)s:%(name)s:%(filename)s:%(lineno)d]\t %(message)s',
 )
 
-
-
 COCO_PATH = "/dss/dssmcmlfs01/pn34sa/pn34sa-dss-0000/robustness/VL_adapter/datasets/COCO"
+if not os.path.exists(COCO_PATH):
+    COCO_PATH = "/mnt/robustness/VL_adapter/datasets/COCO"
 logger = logging.getLogger(__name__)
 
 parser = argparse.ArgumentParser()
@@ -206,6 +206,12 @@ parser.add_argument(
     action="store_true",
     default=False,
     help="Whether to evaluate on OK-VQA.",
+)
+parser.add_argument(
+    "--eval_gqa",
+    action="store_true",
+    default=False,
+    help="Whether to evaluate on GQA.",
 )
 parser.add_argument(
     "--eval_vizwiz",
@@ -426,6 +432,39 @@ parser.add_argument(
     default=None,
 )
 
+# GQA
+parser.add_argument(
+    "--gqa_image_dir_path",
+    type=str,
+    help="Path to the gqa images directory.",
+    default=None,
+)
+parser.add_argument(
+    "--gqa_train_questions_json_path",
+    type=str,
+    help="Path to the gqa questions json file.",
+    default=None,
+)
+parser.add_argument(
+    "--gqa_train_annotations_json_path",
+    type=str,
+    help="Path to the gqa annotations json file.",
+    default=None,
+)
+parser.add_argument(
+    "--gqa_test_questions_json_path",
+    type=str,
+    help="Path to the gqa questions json file.",
+    default=None,
+)
+parser.add_argument(
+    "--gqa_test_annotations_json_path",
+    type=str,
+    help="Path to the gqa annotations json file.",
+    default=None,
+)
+
+
 ## Imagenet dataset
 parser.add_argument("--imagenet_root", type=str, default="/tmp")
 
@@ -568,9 +607,39 @@ def main():
                     }
                 )
 
+    if args.eval_gqa:
+        logger.info("Evaluating on GQA...")
+        cached_features = None
+        for shot in args.shots:
+            scores = []
+            for seed, trial in zip(args.trial_seeds, range(args.num_trials)):
+                gqa_score = evaluate_vqa(
+                    args=args,
+                    eval_model=eval_model,
+                    num_shots=shot,
+                    seed=seed,
+                    dataset_name="gqa",
+                    demo_mode=args.demo_mode,
+                    visual_demo_mode=args.visual_demo_mode,
+                    cached_features=cached_features,
+                )
+                if args.rank == 0:
+                    logging.info(f"Shots {shot} Trial {trial} GQA score: {gqa_score}")
+                    scores.append(gqa_score)
+
+            if args.rank == 0:
+                logging.info(f"Shots {shot} Mean GQA score: {np.nanmean(scores)}")
+                results["gqa"].append(
+                    {
+                        "shots": shot,
+                        "trials": scores,
+                        "mean": np.nanmean(scores),
+                        "stddev": np.nanstd(scores),
+                    }
+                )
+
     if args.eval_ok_vqa:
         logging.info("Evaluating on OK-VQA...")
-        print("Evaluating on OK-VQA...")
 
         # load cached demonstration features for RICES
         if args.cached_demonstration_features is not None:
@@ -669,6 +738,8 @@ def main():
                     num_shots=shot,
                     seed=seed,
                     dataset_name="vizwiz",
+                    demo_mode=args.demo_mode,
+                    visual_demo_mode=args.visual_demo_mode,
                     cached_features=cached_features,
                 )
                 if args.rank == 0 and vizwiz_score is not None:
@@ -707,6 +778,8 @@ def main():
                     seed=seed,
                     dataset_name="textvqa",
                     max_generation_length=10,
+                    demo_mode=args.demo_mode,
+                    visual_demo_mode=args.visual_demo_mode,
                     cached_features=cached_features,
                 )
                 if args.rank == 0:
@@ -843,10 +916,6 @@ def prepare_eval_samples(test_dataset, num_samples, batch_size, seed, num_shots=
 
     dataset = torch.utils.data.Subset(test_dataset, random_indices)
     sampler = torch.utils.data.distributed.DistributedSampler(dataset)
-    if num_shots == 32:
-        batch_size = 2 # for vqa ood, TODO
-    if num_shots == 16:
-        batch_size = 2 # for vqa ood, TODO
     loader = torch.utils.data.DataLoader(
         dataset,
         batch_size=batch_size,
@@ -1068,6 +1137,8 @@ def evaluate_captioning(
 def evaluate_vqa(
     args: argparse.Namespace,
     eval_model: BaseEvalModel,
+    demo_mode,
+    visual_demo_mode,
     seed: int = 42,
     min_generation_length: int = 0,
     max_generation_length: int = 5,
@@ -1076,8 +1147,6 @@ def evaluate_vqa(
     num_shots: int = 8,
     dataset_name: str = "vqav2",
     cached_features=None,
-    demo_mode: str = "gold",
-    visual_demo_mode: str = "random",
 ):
     """
     Evaluate a model on VQA datasets. Currently supports VQA v2.0, OK-VQA, VizWiz and TextVQA.
@@ -1125,9 +1194,20 @@ def evaluate_vqa(
         test_image_dir_path = args.textvqa_image_dir_path
         test_questions_json_path = args.textvqa_test_questions_json_path
         test_annotations_json_path = args.textvqa_test_annotations_json_path
+    elif dataset_name == "gqa":
+        train_image_dir_path = args.gqa_image_dir_path
+        train_questions_json_path = args.gqa_train_questions_json_path
+        train_annotations_json_path = args.gqa_train_annotations_json_path
+        test_image_dir_path = args.gqa_image_dir_path
+        test_questions_json_path = args.gqa_test_questions_json_path
+        test_annotations_json_path = args.gqa_test_annotations_json_path
     else:
         raise ValueError(f"Unsupported dataset: {dataset_name}")
-    if demo_mode:
+    assert demo_mode is not None and visual_demo_mode is not None , (
+        f"demo_mode={demo_mode} and visual_demo_mode={visual_demo_mode} must be specified."
+
+    )
+    if demo_mode != "gold":
         logger.info(f"Using demo mode {demo_mode} for {dataset_name}")
         logger.info(f"Using visual demo mode {visual_demo_mode} for {dataset_name}")
         train_dataset = VQADatasetDiffDemoForm(
@@ -1251,13 +1331,19 @@ def evaluate_vqa(
         f.write(json.dumps(all_predictions, indent=4))
 
     if test_annotations_json_path is not None:
-        acc = compute_vqa_accuracy(
-            result_file,
-            test_questions_json_path,
-            test_annotations_json_path,
-        )
+        if dataset_name == "gqa":
+            acc = compute_gqa_accuracy(
+                result_file,
+                test_annotations_json_path,
+            )
+        else:
+            acc = compute_vqa_accuracy(
+                result_file,
+                test_questions_json_path,
+                test_annotations_json_path,
+            )
         # delete the temporary file
-        # os.remove(f"{dataset_name}results_{random_uuid}.json")
+        os.remove(result_file)
 
     else:
         logging.info("No annotations provided, skipping accuracy computation.")
@@ -1292,7 +1378,7 @@ def evaluate_vqa(
             "Test-dev results saved to ",
             f"{dataset_name}-testdev_{eval_model.lm_name}_{num_shots}_{'rices' if args.rices else 'random'}_{seed}.json",
         )
-        os.remove(f"{dataset_name}results_{random_uuid}.json")
+        # os.remove(result_file)
 
     return acc
 
