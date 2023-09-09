@@ -9,18 +9,22 @@ TEXTVQA_VAL_QUES="${BASE_JSON_PATH}/val_questions_vqa_format.json"
 TEXTVQA_VAL_ANNO="${BASE_JSON_PATH}/val_annotations_vqa_format.json"
 
 # 9B
-CKPT_PATH="/mnt/.cache/huggingface/hub/models--openflamingo--OpenFlamingo-9B-vitl-mpt7b/snapshots/e6e175603712c7007fe3b9c0d50bdcfbd83adfc2/checkpoint.pt"
-LM_MODEL="anas-awadalla/mpt-7b"
-CROSS_ATTN_EVERY_N_LAYERS=4
+#CKPT_PATH="/mnt/.cache/huggingface/hub/models--openflamingo--OpenFlamingo-9B-vitl-mpt7b/snapshots/e6e175603712c7007fe3b9c0d50bdcfbd83adfc2/checkpoint.pt"
+#LM_MODEL="anas-awadalla/mpt-7b"
+#CROSS_ATTN_EVERY_N_LAYERS=4
+
+CKPT_PATH="/mnt/.cache/huggingface/hub/models--openflamingo--OpenFlamingo-3B-vitl-mpt1b-langinstruct/snapshots/656bbbcd4508db84ccc83c02361011c6fe92ae93/checkpoint.pt"
+LM_MODEL="anas-awadalla/mpt-1b-redpajama-200b-dolly"
+CROSS_ATTN_EVERY_N_LAYERS=1
 
 SHOTS=$1
 MASTER_PORT=$2
 BS=$3
 
-export CUDA_VISIBLE_DEVICES=0,1,2,3
+export CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7
 NUM_GPUs=`echo $CUDA_VISIBLE_DEVICES | grep -P -o '\d' | wc -l`
 TIMESTAMP=`date +"%Y-%m-%d-%T"`
-COMMENT="9B-reproduce-textvqa{SHOTS}"
+COMMENT="3B-reproduce-textvqa-${SHOTS}"
 RESULTS_FILE="results_${TIMESTAMP}_${COMMENT}.json"
 torchrun --nnodes=1 --nproc_per_node="$NUM_GPUs" --master_port=${MASTER_PORT} open_flamingo/eval/evaluate.py \
     --vision_encoder_path ViT-L-14 \
