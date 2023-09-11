@@ -10,7 +10,8 @@ from torch.utils.data import Dataset
 from torchvision.datasets import ImageFolder
 from random_word import RandomWords
 from datasets import load_dataset
-from open_flamingo.eval.classification_utils import IMAGENET_1K_CLASS_ID_TO_LABEL
+
+from open_flamingo.eval.classification_utils import IMAGENET_CLASSNAMES
 
 from open_flamingo.eval.classification_utils import IMAGENET_CLASSNAMES
 

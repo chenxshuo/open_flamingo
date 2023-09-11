@@ -13,9 +13,8 @@ if __name__ == "__main__":
         "torch==2.0.1",
         "pillow",
         "open_clip_torch>=2.16.0",
-        "sentencepiece==0.1.98",
+        "sentencepiece",
     ]
-
     EVAL = [
         "scipy",
         "torchvision",
@@ -26,12 +25,18 @@ if __name__ == "__main__":
         "tqdm",
     ]
 
+
     TRAINING = [
         "wandb",
         "torchvision",
         "braceexpand",
         "webdataset",
-        "tqdm",
+        "wandb",
+        "nltk",
+        "scipy",
+        "inflection",
+        "sentencepiece==0.1.98",
+        "open_clip_torch>=2.16.0",
     ]
 
     setup(

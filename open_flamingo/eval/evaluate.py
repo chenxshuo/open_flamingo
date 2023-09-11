@@ -2,13 +2,14 @@ import argparse
 import importlib
 import json
 import os
-import uuid
 import random
+import uuid
 from collections import defaultdict
 import logging
 from PIL import Image
 
-
+from einops import repeat
+import more_itertools
 import numpy as np
 import torch
 from sklearn.metrics import roc_auc_score
@@ -29,8 +30,6 @@ from eval_datasets import (
 from rices import RICES
 from tqdm import tqdm
 
-
-from eval_datasets import VQADataset, ImageNetDataset
 from classification_utils import (
     IMAGENET_CLASSNAMES,
     HM_CLASSNAMES,
@@ -942,10 +941,6 @@ def evaluate_captioning(
 
     utils.random_seed(seed, args.rank)
     predictions = defaultdict()
-
-    np.random.seed(
-        seed + args.rank
-    )  # make sure each worker has a different seed for the random context samples
     for batch in tqdm(
         test_dataloader,
         desc=f"Running inference {dataset_name.upper()}",
@@ -958,7 +953,8 @@ def evaluate_captioning(
                 query_set, effective_num_shots, len(batch["image"])
             )
 
-        batch_images, batch_text = [], []
+        batch_images = []
+        batch_text = []
         for i in range(len(batch["image"])):
             if num_shots > 0:
                 context_images = [x["image"] for x in batch_demo_samples[i]]
@@ -1164,8 +1160,6 @@ def evaluate_vqa(
         desc=f"Running inference {dataset_name}",
         disable=args.rank != 0,
     ):
-
-
         batch_images, batch_text = prepare_vqa_batch(
             batch=batch,
             in_context_samples=in_context_samples,
