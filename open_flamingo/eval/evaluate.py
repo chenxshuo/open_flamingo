@@ -6,6 +6,7 @@ import uuid
 import random
 from collections import defaultdict
 import logging
+import time as time
 from PIL import Image
 
 
@@ -546,7 +547,9 @@ def main():
 
         for shot in args.shots:
             scores = []
+            time_cost = []
             for seed, trial in zip(args.trial_seeds, range(args.num_trials)):
+                time_start = time.time()
                 cider_score = evaluate_captioning(
                     args,
                     eval_model=eval_model,
@@ -555,8 +558,12 @@ def main():
                     dataset_name="flickr",
                     cached_features=cached_features,
                 )
+                time_end = time.time()
+                time_cost.append(time_end - time_start)
+
                 if args.rank == 0:
-                    logging.info(f"Shots {shot} Trial {trial} CIDEr score: {cider_score}")
+                    logging.info(f"Shots {shot} Trial {trial} CIDEr score: {cider_score} "
+                                 f"Evaluation time: {np.nanmean(time_end - time_start)}")
                     scores.append(cider_score)
 
             if args.rank == 0:
@@ -567,6 +574,9 @@ def main():
                         "trials": scores,
                         "mean": np.nanmean(scores),
                         "stddev": np.nanstd(scores),
+                        "time_evaluate": time_cost,
+                        "time_mean": np.nanmean(time_cost),
+                        "time_stddev": np.nanstd(time_cost),
                     }
                 )
 
@@ -582,7 +592,9 @@ def main():
 
         for shot in args.shots:
             scores = []
+            time_cost = []
             for seed, trial in zip(args.trial_seeds, range(args.num_trials)):
+                time_start = time.time()
                 cider_score = evaluate_captioning(
                     args,
                     eval_model=eval_model,
@@ -592,8 +604,12 @@ def main():
                     cached_features=cached_features,
                     demo_mode=args.demo_mode,
                 )
+                time_end = time.time()
+                time_cost.append(time_end - time_start)
+
                 if args.rank == 0:
-                    logging.info(f"Shots {shot} Trial {trial} CIDEr score: {cider_score}")
+                    logging.info(f"Shots {shot} Trial {trial} CIDEr score: {cider_score} "
+                                 f"Evaluation time: {np.nanmean(time_end - time_start)}")
                     scores.append(cider_score)
 
             if args.rank == 0:
@@ -604,6 +620,9 @@ def main():
                         "trials": scores,
                         "mean": np.nanmean(scores),
                         "stddev": np.nanstd(scores),
+                        "time_evaluate": time_cost,
+                        "time_mean": np.nanmean(time_cost),
+                        "time_stddev": np.nanstd(time_cost),
                     }
                 )
 
@@ -612,7 +631,9 @@ def main():
         cached_features = None
         for shot in args.shots:
             scores = []
+            time_cost = []
             for seed, trial in zip(args.trial_seeds, range(args.num_trials)):
+                time_start = time.time()
                 gqa_score = evaluate_vqa(
                     args=args,
                     eval_model=eval_model,
@@ -623,8 +644,12 @@ def main():
                     visual_demo_mode=args.visual_demo_mode,
                     cached_features=cached_features,
                 )
+                time_end = time.time()
+                time_cost.append(time_end - time_start)
+
                 if args.rank == 0:
-                    logging.info(f"Shots {shot} Trial {trial} GQA score: {gqa_score}")
+                    logging.info(f"Shots {shot} Trial {trial} GQA score: {gqa_score} "
+                                 f"Evaluation time: {np.nanmean(time_end - time_start)} ")
                     scores.append(gqa_score)
 
             if args.rank == 0:
@@ -635,6 +660,9 @@ def main():
                         "trials": scores,
                         "mean": np.nanmean(scores),
                         "stddev": np.nanstd(scores),
+                        "time_evaluate": time_cost,
+                        "time_mean": np.nanmean(time_cost),
+                        "time_stddev": np.nanstd(time_cost),
                     }
                 )
 
@@ -651,7 +679,9 @@ def main():
 
         for shot in args.shots:
             scores = []
+            time_cost = []
             for seed, trial in zip(args.trial_seeds, range(args.num_trials)):
+                time_start = time.time()
                 ok_vqa_score = evaluate_vqa(
                     args=args,
                     eval_model=eval_model,
@@ -662,8 +692,10 @@ def main():
                     visual_demo_mode=args.visual_demo_mode,
                     cached_features=cached_features,
                 )
+                time_end = time.time()
+                time_cost.append(time_end - time_start)
                 if args.rank == 0:
-                    logging.info(f"Shots {shot} Trial {trial} OK-VQA score: {ok_vqa_score}")
+                    logging.info(f"Shots {shot} Trial {trial} OK-VQA score: {ok_vqa_score} Evaluation time: {time_end - time_start}")
                     scores.append(ok_vqa_score)
 
             if args.rank == 0:
@@ -674,6 +706,9 @@ def main():
                         "trials": scores,
                         "mean": np.nanmean(scores),
                         "stddev": np.nanstd(scores),
+                        "time_evaluate": time_cost,
+                        "time_mean": np.nanmean(time_cost),
+                        "time_stddev": np.nanstd(time_cost),
                     }
                 )
 
@@ -691,7 +726,9 @@ def main():
 
         for shot in args.shots:
             scores = []
+            time_cost = []
             for seed, trial in zip(args.trial_seeds, range(args.num_trials)):
+                time_start = time.time()
                 vqa_score = evaluate_vqa(
                     args=args,
                     eval_model=eval_model,
@@ -702,9 +739,11 @@ def main():
                     visual_demo_mode=args.visual_demo_mode,
                     cached_features=cached_features,
                 )
+                time_end = time.time()
+                time_cost.append(time_end - time_start)
 
                 if args.rank == 0 and vqa_score is not None:
-                    logger.info(f"Shots {shot} Trial {trial} VQA score: {vqa_score}")
+                    logger.info(f"Shots {shot} Trial {trial} VQA score: {vqa_score} Evaluation time: {time_end - time_start}")
                     scores.append(vqa_score)
 
             if args.rank == 0 and len(scores) > 0:
@@ -715,6 +754,9 @@ def main():
                         "trials": scores,
                         "mean": np.nanmean(scores),
                         "stddev": np.nanstd(scores),
+                        "time_evaluate": time_cost,
+                        "time_mean": np.nanmean(time_cost),
+                        "time_stddev": np.nanstd(time_cost),
                     }
                 )
 
@@ -731,7 +773,9 @@ def main():
 
         for shot in args.shots:
             scores = []
+            time_cost = []
             for seed, trial in zip(args.trial_seeds, range(args.num_trials)):
+                time_start = time.time()
                 vizwiz_score = evaluate_vqa(
                     args=args,
                     eval_model=eval_model,
@@ -742,8 +786,10 @@ def main():
                     visual_demo_mode=args.visual_demo_mode,
                     cached_features=cached_features,
                 )
+                time_end = time.time()
+                time_cost.append(time_end - time_start)
                 if args.rank == 0 and vizwiz_score is not None:
-                    logging.info(f"Shots {shot} Trial {trial} VizWiz score: {vizwiz_score}")
+                    logging.info(f"Shots {shot} Trial {trial} VizWiz score: {vizwiz_score} Evaluation time: {time_end - time_start}")
                     scores.append(vizwiz_score)
 
             if args.rank == 0 and len(scores) > 0:
@@ -754,6 +800,9 @@ def main():
                         "trials": scores,
                         "mean": np.nanmean(scores),
                         "stddev": np.nanstd(scores),
+                        "time_evaluate": time_cost,
+                        "time_mean": np.nanmean(time_cost),
+                        "time_stddev": np.nanstd(time_cost),
                     }
                 )
 
@@ -770,7 +819,9 @@ def main():
 
         for shot in args.shots:
             scores = []
+            time_cost = []
             for seed, trial in zip(args.trial_seeds, range(args.num_trials)):
+                time_start = time.time()
                 textvqa_score = evaluate_vqa(
                     args=args,
                     eval_model=eval_model,
@@ -782,8 +833,9 @@ def main():
                     visual_demo_mode=args.visual_demo_mode,
                     cached_features=cached_features,
                 )
+                time_end = time.time()
                 if args.rank == 0:
-                    logging.info(f"Shots {shot} Trial {trial} TextVQA score: {textvqa_score}")
+                    logging.info(f"Shots {shot} Trial {trial} TextVQA score: {textvqa_score} Evaluation time: {time_end - time_start}")
                     scores.append(textvqa_score)
 
             if args.rank == 0:
@@ -794,6 +846,9 @@ def main():
                         "trials": scores,
                         "mean": np.nanmean(scores),
                         "stddev": np.nanstd(scores),
+                        "time_evaluate": time_cost,
+                        "time_mean": np.nanmean(time_cost),
+                        "time_stddev": np.nanstd(time_cost),
                     }
                 )
 
@@ -810,7 +865,9 @@ def main():
 
         for shot in args.shots:
             scores = []
+            time_cost = []
             for seed, trial in zip(args.trial_seeds, range(args.num_trials)):
+                time_start = time.time()
                 imagenet_score = evaluate_classification(
                     args,
                     eval_model=eval_model,
@@ -822,10 +879,13 @@ def main():
                     use_prompt_ensembling=args.classification_prompt_ensembling,
                     demo_mode=args.demo_mode,
                 )
+                time_end = time.time()
+                time_cost.append(time_end - time_start)
                 if args.rank == 0:
                     logging.info(
                         f"Shots {shot} Trial {trial} "
                         f"ImageNet score: {imagenet_score}"
+                        f" Evaluation time: {time_end - time_start}"
                     )
                     scores.append(imagenet_score)
 
@@ -837,6 +897,9 @@ def main():
                         "trials": scores,
                         "mean": np.nanmean(scores),
                         "stddev": np.nanstd(scores),
+                        "time_evaluate": time_cost,
+                        "time_mean": np.nanmean(time_cost),
+                        "time_stddev": np.nanstd(time_cost),
                     }
                 )
 
@@ -853,7 +916,9 @@ def main():
 
         for shot in args.shots:
             scores = []
+            time_cost = []
             for seed, trial in zip(args.trial_seeds, range(args.num_trials)):
+                time_start = time.time()
                 hateful_memes_score = evaluate_classification(
                     args,
                     eval_model=eval_model,
@@ -864,10 +929,12 @@ def main():
                     demo_mode=args.demo_mode,
                     cached_features=cached_features,
                 )
+                time_end = time.time()
                 if args.rank == 0:
                     logging.info(
                         f"Shots {shot} Trial {trial} "
                         f"Hateful Memes score: {hateful_memes_score}"
+                        f" Evaluation time: {time_end - time_start}"
                     )
                     scores.append(hateful_memes_score)
 
@@ -879,6 +946,9 @@ def main():
                         "trials": scores,
                         "mean": np.nanmean(scores),
                         "stddev": np.nanstd(scores),
+                        "time_evaluate": time_cost,
+                        "time_mean": np.nanmean(time_cost),
+                        "time_stddev": np.nanstd(time_cost),
                     }
                 )
 
