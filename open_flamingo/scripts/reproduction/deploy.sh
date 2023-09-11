@@ -2,10 +2,11 @@
 
 # shots = 0, 4, 8, 16; port = 26000, 26001, 26002, 26003; batch_size = 64
 
-bash open_flamingo/scripts/reproduction/run_eval_9B_vqav2.sh 0 26000 1 &> out-reproduce-9B-vqav2-shot-0.text
-bash open_flamingo/scripts/reproduction/run_eval_9B_vqav2.sh 4 26001 64 &> out-reproduce-9B-vqav2-shot-4.text
-bash open_flamingo/scripts/reproduction/run_eval_9B_vqav2.sh 8 26002 1 &> out-reproduce-9B-vqav2-shot-8.text
-bash open_flamingo/scripts/reproduction/run_eval_9B_vqav2.sh 16 26003 1 &> out-reproduce-9B-vqav2-shot-16.text
+bash open_flamingo/scripts/reproduction/run_eval_9B_vqav2.sh 0 26000 64 &> out-reproduce-9B-vqav2-shot-0.text
+#bash open_flamingo/scripts/reproduction/run_eval_9B_vqav2.sh 4 26001 64 &> out-reproduce-9B-vqav2-shot-4.text
+bash open_flamingo/scripts/reproduction/run_eval_9B_vqav2.sh 8 26002 32 &> out-reproduce-9B-vqav2-shot-8.text
+bash open_flamingo/scripts/reproduction/run_eval_9B_vqav2.sh 16 26003 16 &> out-reproduce-9B-vqav2-shot-16.text
+bash open_flamingo/scripts/reproduction/run_eval_9B_vqav2.sh 32 26004 8 &> out-reproduce-9B-vqav2-shot-32.text
 
 #bash open_flamingo/scripts/reproduction/run_eval_9B_okvqa.sh 0 26000 64 &> out-reproduce-9B-okvqa-shot-0.text
 #bash open_flamingo/scripts/reproduction/run_eval_9B_okvqa.sh 4 26001 64 &> out-reproduce-9B-okvqa-shot-4.text
