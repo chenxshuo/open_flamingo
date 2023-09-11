@@ -17,6 +17,7 @@ pycocoevalcap
 pycocotools
 open_clip_torch>=2.16.0
 scikit-learn
+sentencepiece
 
 # others
 random-word

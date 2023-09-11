@@ -13,6 +13,8 @@ from datasets import load_dataset
 
 from open_flamingo.eval.classification_utils import IMAGENET_CLASSNAMES
 
+from open_flamingo.eval.classification_utils import IMAGENET_CLASSNAMES
+
 logger = logging.getLogger(__name__)
 
 def get_random_string(length=10):
