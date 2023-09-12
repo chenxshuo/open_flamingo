@@ -1,15 +1,15 @@
 #!/bin/bash
-export HF_HOME="/mnt/.cache/huggingface"
+export HF_HOME="/dss/dssmcmlfs01/pn34sa/pn34sa-dss-0000/.cache/huggingface"
 #mnt
-TEXTVQA_IMG_PATH="/mnt/robustness/datasets/textvqa/train_val_images/train_images"
-BASE_JSON_PATH="/mnt/.cache/huggingface/hub/datasets--openflamingo--eval_benchmark/snapshots/2391a430b8bb92b7cf0677a541a180a310497d4f/textvqa"
+TEXTVQA_IMG_PATH="/dss/dssmcmlfs01/pn34sa/pn34sa-dss-0000/robustness/datasets/textvqa/train_val_images/train_images"
+BASE_JSON_PATH="/dss/dssmcmlfs01/pn34sa/pn34sa-dss-0000/.cache/huggingface/hub/datasets--openflamingo--eval_benchmark/snapshots/2391a430b8bb92b7cf0677a541a180a310497d4f/textvqa"
 TEXTVQA_TRAIN_QUES="${BASE_JSON_PATH}/train_questions_vqa_format.json"
 TEXTVQA_TRAIN_ANNO="${BASE_JSON_PATH}/train_annotations_vqa_format.json"
 TEXTVQA_VAL_QUES="${BASE_JSON_PATH}/val_questions_vqa_format.json"
 TEXTVQA_VAL_ANNO="${BASE_JSON_PATH}/val_annotations_vqa_format.json"
 
 # 9B
-CKPT_PATH="/mnt/.cache/huggingface/hub/models--openflamingo--OpenFlamingo-9B-vitl-mpt7b/snapshots/e6e175603712c7007fe3b9c0d50bdcfbd83adfc2/checkpoint.pt"
+CKPT_PATH="/dss/dssmcmlfs01/pn34sa/pn34sa-dss-0000/.cache/huggingface/hub/models--openflamingo--OpenFlamingo-9B-vitl-mpt7b/snapshots/e6e175603712c7007fe3b9c0d50bdcfbd83adfc2/checkpoint.pt"
 LM_MODEL="anas-awadalla/mpt-7b"
 CROSS_ATTN_EVERY_N_LAYERS=4
 

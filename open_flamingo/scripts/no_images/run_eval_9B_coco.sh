@@ -20,8 +20,8 @@ MASTER_PORT=$2
 BS=$3
 
 DEMO_MODE="gold"
-VISUAL_DEMO_MODE="no_images"
-
+#VISUAL_DEMO_MODE="no_images"
+VISUAL_DEMO_MODE="random"
 export CUDA_VISIBLE_DEVICES=0,1,2,3,
 NUM_GPUs=`echo $CUDA_VISIBLE_DEVICES | grep -P -o '\d' | wc -l`
 TIMESTAMP=`date +"%Y-%m-%d-%T"`
