@@ -6,11 +6,15 @@ import logging
 import logging
 import huggingface_hub
 import os
+import json
+
 from open_flamingo import create_model_and_transforms
 from huggingface_hub import hf_hub_download
 import torch
 from PIL import Image
 import requests
+from datasets import load_dataset
+
 import re
 
 logger = logging.getLogger(__name__)
@@ -131,6 +135,17 @@ def generate(vision_x, input_ids, attention_mask, model, tokenizer):
     answer = re.split("Question|Answer|Short", predictions, 1)[0]
     answer = re.split(", ", answer, 1)[0]
     print(f"Answer:|{answer}|")
+
+
+def load_ood_dataset():
+    d = load_dataset("cc_news")
+    d = d.data["train"]['description']
+    return [str(c) for c in d[:1000]]
+
+def load_question_space():
+    with open(f"../generated_data_information/vqa2_que2ans.json", "r") as f:
+        question_space = json.load(f)
+    return question_space
 
 
 if __name__ == "__main__":
