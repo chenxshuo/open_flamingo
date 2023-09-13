@@ -17,8 +17,8 @@ CKPT_PATH="/dss/dssmcmlfs01/pn34sa/pn34sa-dss-0000/.cache/huggingface/hub/models
 LM_MODEL="anas-awadalla/mpt-7b"
 CROSS_ATTN_EVERY_N_LAYERS=4
 
-export CUDA_VISIBLE_DEVICES=0,1,2,3
-
+#export CUDA_VISIBLE_DEVICES=0,1,2,3
+export CUDA_VISIBLE_DEVICES=4,5,6,7
 NUM_GPUs=`echo $CUDA_VISIBLE_DEVICES | grep -P -o '\d' | wc -l`
 TIMESTAMP=`date +"%Y-%m-%d-%T"`
 MODE="gold"
@@ -29,10 +29,16 @@ COMMENT="9B-vqav2-$MODE-$VISUAL_MODE-number_of_objects-$NUMBER_OF_OBJECTS"
 
 MASTER_PORT=$2
 SHOTS=$3
-if [ $SHOTS = 4 ]; then
+if [ $SHOTS = 0 ]; then
+  BS=64
+elif [ $SHOTS = 4 ]; then
   BS=64
 elif [ $SHOTS = 8 ]; then
   BS=16
+elif [ $SHOTS = 16 ]; then
+  BS=8
+elif [ $SHOTS = 32 ]; then
+  BS=8
 fi
 
 RESULTS_FILE="results_${TIMESTAMP}_${COMMENT}.json"
