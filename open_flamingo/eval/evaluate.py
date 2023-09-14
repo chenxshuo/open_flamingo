@@ -16,6 +16,7 @@ import torch
 from sklearn.metrics import roc_auc_score
 from pycocotools.coco import COCO
 import utils
+from utils import create_experiment_dir
 import math
 
 from coco_metric import compute_cider, postprocess_captioning_generation
@@ -517,11 +518,11 @@ def main():
     model_args = {
         leftovers[i].lstrip("-"): leftovers[i + 1] for i in range(0, len(leftovers), 2)
     }
-    eval_model = module.EvalModel(model_args)
-
     # set up distributed evaluation
     args.local_rank, args.rank, args.world_size = world_info_from_env()
+    experiment_base_dir = create_experiment_dir(args, model_args)
     device_id = init_distributed_device(args)
+    eval_model = module.EvalModel(model_args)
     eval_model.set_device(device_id)
     eval_model.init_distributed()
 
@@ -556,7 +557,10 @@ def main():
                     num_shots=shot,
                     seed=seed,
                     dataset_name="flickr",
+                    demo_mode=args.demo_mode,
+                    visual_demo_mode=args.visual_demo_mode,
                     cached_features=cached_features,
+                    experiment_base_dir=experiment_base_dir,
                 )
                 time_end = time.time()
                 time_cost.append(time_end - time_start)
@@ -601,8 +605,10 @@ def main():
                     num_shots=shot,
                     seed=seed,
                     dataset_name="coco",
-                    cached_features=cached_features,
                     demo_mode=args.demo_mode,
+                    visual_demo_mode=args.visual_demo_mode,
+                    cached_features=cached_features,
+                    experiment_base_dir=experiment_base_dir,
                 )
                 time_end = time.time()
                 time_cost.append(time_end - time_start)
@@ -643,6 +649,7 @@ def main():
                     demo_mode=args.demo_mode,
                     visual_demo_mode=args.visual_demo_mode,
                     cached_features=cached_features,
+                    experiment_base_dir=experiment_base_dir,
                 )
                 time_end = time.time()
                 time_cost.append(time_end - time_start)
@@ -691,6 +698,7 @@ def main():
                     demo_mode=args.demo_mode,
                     visual_demo_mode=args.visual_demo_mode,
                     cached_features=cached_features,
+                    experiment_base_dir=experiment_base_dir,
                 )
                 time_end = time.time()
                 time_cost.append(time_end - time_start)
@@ -738,6 +746,7 @@ def main():
                     demo_mode=args.demo_mode,
                     visual_demo_mode=args.visual_demo_mode,
                     cached_features=cached_features,
+                    experiment_base_dir=experiment_base_dir,
                 )
                 time_end = time.time()
                 time_cost.append(time_end - time_start)
@@ -785,6 +794,7 @@ def main():
                     demo_mode=args.demo_mode,
                     visual_demo_mode=args.visual_demo_mode,
                     cached_features=cached_features,
+                    experiment_base_dir=experiment_base_dir,
                 )
                 time_end = time.time()
                 time_cost.append(time_end - time_start)
@@ -832,8 +842,10 @@ def main():
                     demo_mode=args.demo_mode,
                     visual_demo_mode=args.visual_demo_mode,
                     cached_features=cached_features,
+                    experiment_base_dir=experiment_base_dir,
                 )
                 time_end = time.time()
+                time_cost.append(time_end - time_start)
                 if args.rank == 0:
                     logging.info(f"Shots {shot} Trial {trial} TextVQA score: {textvqa_score} Evaluation time: {time_end - time_start}")
                     scores.append(textvqa_score)
@@ -875,9 +887,11 @@ def main():
                     seed=seed,
                     no_kv_caching=args.no_caching_for_classification,
                     dataset_name="imagenet",
+                    demo_mode=args.demo_mode,
+                    visual_demo_mode=args.visual_demo_mode,
                     cached_features=cached_features,
                     use_prompt_ensembling=args.classification_prompt_ensembling,
-                    demo_mode=args.demo_mode,
+                    experiment_base_dir=experiment_base_dir,
                 )
                 time_end = time.time()
                 time_cost.append(time_end - time_start)
@@ -927,7 +941,10 @@ def main():
                     no_kv_caching=args.no_caching_for_classification,
                     dataset_name="hateful_memes",
                     demo_mode=args.demo_mode,
+                    visual_demo_mode=args.visual_demo_mode,
                     cached_features=cached_features,
+                    use_prompt_ensembling=args.classification_prompt_ensembling,
+                    experiment_base_dir=experiment_base_dir,
                 )
                 time_end = time.time()
                 if args.rank == 0:
@@ -955,6 +972,12 @@ def main():
     if args.rank == 0 and args.results_file is not None:
         with open(args.results_file, "w") as f:
             json.dump(results, f)
+        with open(os.path.join(experiment_base_dir, "evaluation_results.json"), "w") as f:
+            json.dump(results, f)
+
+    logger.info("Evaluation complete. \n"
+                f"Experiment results are saved in {experiment_base_dir}")
+
 
 
 def get_random_indices(num_samples, query_set_size, full_dataset, seed):
@@ -1014,193 +1037,6 @@ def custom_collate_fn(batch):
     return collated_batch
 
 
-def evaluate_captioning(
-    args: argparse.Namespace,
-    eval_model: BaseEvalModel,
-    seed: int = 42,
-    min_generation_length: int = 0,
-    max_generation_length: int = 20,
-    num_beams: int = 3,
-    length_penalty: float = 0.0,
-    num_shots: int = 8,
-    dataset_name: str = "coco",
-    cached_features=None,
-    demo_mode: str = "gold",
-):
-    """Evaluate a model on COCO dataset.
-
-    Args:
-        args (argparse.Namespace): arguments
-        eval_model (BaseEvalModel): model to evaluate
-        seed (int, optional): seed for random number generator. Defaults to 42.
-        max_generation_length (int, optional): maximum length of the generated caption. Defaults to 20.
-        num_beams (int, optional): number of beams to use for beam search. Defaults to 3.
-        length_penalty (float, optional): length penalty for beam search. Defaults to -2.0.
-        num_shots (int, optional): number of in-context samples to use. Defaults to 8.
-        dataset_name (str, optional): dataset to evaluate on. Can be "coco" or "flickr". Defaults to "coco".
-        cached_features (tensor, optional): cached demonstration features for RICES. Defaults to None.
-    Returns:
-        float: CIDEr score
-
-    """
-    logger.info(f"Evaluating Caption Task on {dataset_name}...")
-
-    if dataset_name == "coco":
-        image_train_dir_path = args.coco_train_image_dir_path
-        image_val_dir_path = args.coco_val_image_dir_path
-        annotations_path = args.coco_karpathy_json_path
-    elif dataset_name == "flickr":
-        image_train_dir_path = (
-            args.flickr_image_dir_path
-        )  # Note: calling this "train" for consistency with COCO but Flickr only has one split for images
-        image_val_dir_path = None
-        annotations_path = args.flickr_karpathy_json_path
-    else:
-        raise ValueError(f"Unsupported dataset: {dataset_name}")
-
-    if demo_mode:
-        train_dataset = CaptionDatasetTR(
-            seed=seed,
-            image_train_dir_path=image_train_dir_path,
-            image_val_dir_path=image_val_dir_path,
-            annotations_path=annotations_path,
-            is_train=True,
-            dataset_name=dataset_name if dataset_name != "nocaps" else "coco",
-        )
-    else:
-        train_dataset = CaptionDataset(
-            image_train_dir_path=image_train_dir_path,
-            image_val_dir_path=image_val_dir_path,
-            annotations_path=annotations_path,
-            is_train=True,
-            dataset_name=dataset_name if dataset_name != "nocaps" else "coco",
-        )
-
-    test_dataset = CaptionDataset(
-        image_train_dir_path=image_train_dir_path,
-        image_val_dir_path=image_val_dir_path,
-        annotations_path=annotations_path,
-        is_train=False,
-        dataset_name=dataset_name,
-    )
-
-    # num_shots should > 0, otherwise, it will be set to 2
-    effective_num_shots = utils.compute_effective_num_shots(num_shots, args.model)
-    logger.info(f"Effective number of shots: {effective_num_shots}")
-
-    np.random.seed(seed)
-    test_dataloader = utils.prepare_eval_samples(
-        test_dataset,
-        args.num_samples if args.num_samples > 0 else len(test_dataset),
-        args.batch_size,
-    )
-
-    if args.rices:
-        rices_dataset = RICES(
-            train_dataset,
-            eval_model.device,
-            args.batch_size,
-            cached_features=cached_features,
-            vision_encoder_path=args.rices_vision_encoder_path,
-            vision_encoder_pretrained=args.rices_vision_encoder_pretrained,
-        )
-    else:
-        # subset of the training set to sample context images from
-        query_set = utils.get_query_set(train_dataset, args.query_set_size)
-
-    utils.random_seed(seed, args.rank)
-    predictions = defaultdict()
-    for batch in tqdm(
-        test_dataloader,
-        desc=f"Running inference {dataset_name.upper()}",
-        disable=args.rank != 0,
-    ):
-        if args.rices:
-            batch_demo_samples = rices_dataset.find(batch["image"], effective_num_shots)
-        else:
-            batch_demo_samples = utils.sample_batch_demos_from_query_set(
-                query_set, effective_num_shots, len(batch["image"])
-            )
-
-        batch_images = []
-        batch_text = []
-        for i in range(len(batch["image"])):
-            if num_shots > 0:
-                context_images = [x["image"] for x in batch_demo_samples[i]]
-            else:
-                context_images = []
-            batch_images.append(context_images + [batch["image"][i]])
-
-            context_text = "".join(
-                [
-                    eval_model.get_caption_prompt(caption=x["caption"].strip()) + "\n"
-                    for x in batch_demo_samples[i]
-                ]
-            )
-            # logger.critical(f"context_text: {context_text} do task recognition: {demo_mode}")
-            # assert False
-            # Keep the text but remove the image tags for the zero-shot case
-            if num_shots == 0:
-                context_text = context_text.replace("<image>", "")
-
-            batch_text.append(context_text + eval_model.get_caption_prompt())
-
-        outputs = eval_model.get_outputs(
-            batch_images=batch_images,
-            batch_text=batch_text,
-            min_generation_length=min_generation_length,
-            max_generation_length=max_generation_length,
-            num_beams=num_beams,
-            length_penalty=length_penalty,
-        )
-
-        new_predictions = [
-            postprocess_captioning_generation(out).replace('"', "") for out in outputs
-        ]
-
-        for i, sample_id in enumerate(batch["image_id"]):
-            predictions[sample_id] = {
-                "caption": new_predictions[i],
-            }
-
-    # all gather
-    all_predictions = [None for _ in range(args.world_size)]
-    torch.distributed.all_gather_object(all_predictions, predictions)  # list of dicts
-
-    if args.rank != 0:
-        return None
-
-    all_predictions = {
-        k: v for d in all_predictions for k, v in d.items()
-    }  # merge dicts
-
-    # save the predictions to a temporary file
-    results_path = f"{dataset_name}results_{uuid.uuid4()}_num_shots_{num_shots}.json"
-
-    with open(results_path, "w") as f:
-        f.write(
-            json.dumps(
-                [
-                    {"image_id": k, "caption": all_predictions[k]["caption"]}
-                    for k in all_predictions
-                ],
-                indent=4,
-            )
-        )
-
-    metrics = compute_cider(
-        result_path=results_path,
-        annotations_path=args.coco_annotations_json_path
-        if dataset_name == "coco"
-        else args.flickr_annotations_json_path,
-    )
-
-    # delete the temporary file
-    # os.remove(results_path)
-
-    return metrics["CIDEr"] * 100.0
-
-
 def evaluate_vqa(
     args: argparse.Namespace,
     eval_model: BaseEvalModel,
@@ -1214,6 +1050,7 @@ def evaluate_vqa(
     num_shots: int = 8,
     dataset_name: str = "vqav2",
     cached_features=None,
+    experiment_base_dir=None,
 ):
     """
     Evaluate a model on VQA datasets. Currently supports VQA v2.0, OK-VQA, VizWiz and TextVQA.
@@ -1272,9 +1109,8 @@ def evaluate_vqa(
         raise ValueError(f"Unsupported dataset: {dataset_name}")
     assert demo_mode is not None and visual_demo_mode is not None , (
         f"demo_mode={demo_mode} and visual_demo_mode={visual_demo_mode} must be specified."
-
     )
-    if demo_mode != "gold":
+    if demo_mode != "gold" or visual_demo_mode != "random":
         logger.info(f"Using demo mode {demo_mode} for {dataset_name}")
         logger.info(f"Using visual demo mode {visual_demo_mode} for {dataset_name}")
         train_dataset = VQADatasetDiffDemoForm(
@@ -1391,8 +1227,10 @@ def evaluate_vqa(
     ]  # flatten
 
     # save the predictions to a temporary file
-    random_uuid = str(uuid.uuid4())
-    result_file = f"{dataset_name}results_{random_uuid}_shots_{num_shots}.json"
+    # random_uuid = str(uuid.uuid4())
+    result_file = os.path.join(experiment_base_dir if experiment_base_dir is not None else '',
+                               f"{dataset_name}_results_shots_{num_shots}.json")
+
     with open(result_file, "w") as f:
         f.write(json.dumps(all_predictions, indent=4))
 
@@ -1409,44 +1247,278 @@ def evaluate_vqa(
                 test_annotations_json_path,
             )
         # delete the temporary file
-        os.remove(result_file)
+        # os.remove(result_file)
 
     else:
-        logging.info("No annotations provided, skipping accuracy computation.")
-        logging.info("Temporary file saved to:", f"{dataset_name}results_{random_uuid}.json")
-        acc = None
-        if dataset_name == "vqav2":
-            from open_flamingo.scripts.fill_vqa_testdev_results import (
-                fill_vqav2_test_json,
-            )
-
-            fill_fn = fill_vqav2_test_json
-        elif dataset_name == "vizwiz":
-            from open_flamingo.scripts.fill_vqa_testdev_results import (
-                fill_vizwiz_test_json,
-            )
-
-            fill_fn = fill_vizwiz_test_json
-        else:
-            print(
-                "Temporary file saved to ", f"{dataset_name}results_{random_uuid}.json"
-            )
-            return
-
-        fill_fn(
-            f"{dataset_name}results_{random_uuid}.json",
-            f"{dataset_name}-testdev_{eval_model.lm_name}_{num_shots}_{'rices' if args.rices else 'random'}_{seed}.json",
-            args.vqav2_final_test_questions_json_path
-            if dataset_name == "vqav2"
-            else args.vizwiz_test_questions_json_path,
-        )
-        print(
-            "Test-dev results saved to ",
-            f"{dataset_name}-testdev_{eval_model.lm_name}_{num_shots}_{'rices' if args.rices else 'random'}_{seed}.json",
-        )
+        raise NotImplementedError("No annotations provided, skipping accuracy computation.")
+        # logging.info("No annotations provided, skipping accuracy computation.")
+        # acc = None
+        # if dataset_name == "vqav2":
+        #     from open_flamingo.scripts.fill_vqa_testdev_results import (
+        #         fill_vqav2_test_json,
+        #     )
+        #
+        #     fill_fn = fill_vqav2_test_json
+        # elif dataset_name == "vizwiz":
+        #     from open_flamingo.scripts.fill_vqa_testdev_results import (
+        #         fill_vizwiz_test_json,
+        #     )
+        #
+        #     fill_fn = fill_vizwiz_test_json
+        # else:
+        #     print(
+        #         "Temporary file saved to ", f"{result_file}"
+        #     )
+        #     return
+        #
+        # fill_fn(
+        #     f"{dataset_name}results_{random_uuid}.json",
+        #     f"{dataset_name}-testdev_{eval_model.lm_name}_{num_shots}_{'rices' if args.rices else 'random'}_{seed}.json",
+        #     args.vqav2_final_test_questions_json_path
+        #     if dataset_name == "vqav2"
+        #     else args.vizwiz_test_questions_json_path,
+        # )
+        # print(
+        #     "Test-dev results saved to ",
+        #     f"{dataset_name}-testdev_{eval_model.lm_name}_{num_shots}_{'rices' if args.rices else 'random'}_{seed}.json",
+        # )
         # os.remove(result_file)
 
     return acc
+
+
+def evaluate_captioning(
+    args: argparse.Namespace,
+    eval_model: BaseEvalModel,
+    demo_mode,
+    visual_demo_mode,
+    seed: int = 42,
+    min_generation_length: int = 0,
+    max_generation_length: int = 20,
+    num_beams: int = 3,
+    length_penalty: float = 0.0,
+    num_shots: int = 8,
+    dataset_name: str = "coco",
+    cached_features=None,
+    experiment_base_dir=None,
+):
+    """Evaluate a model on COCO dataset.
+
+    Args:
+        args (argparse.Namespace): arguments
+        eval_model (BaseEvalModel): model to evaluate
+        seed (int, optional): seed for random number generator. Defaults to 42.
+        max_generation_length (int, optional): maximum length of the generated caption. Defaults to 20.
+        num_beams (int, optional): number of beams to use for beam search. Defaults to 3.
+        length_penalty (float, optional): length penalty for beam search. Defaults to -2.0.
+        num_shots (int, optional): number of in-context samples to use. Defaults to 8.
+        dataset_name (str, optional): dataset to evaluate on. Can be "coco" or "flickr". Defaults to "coco".
+        cached_features (tensor, optional): cached demonstration features for RICES. Defaults to None.
+    Returns:
+        float: CIDEr score
+
+    """
+    logger.info(f"Evaluating Caption Task on {dataset_name}...")
+
+    if dataset_name == "coco":
+        image_train_dir_path = args.coco_train_image_dir_path
+        image_val_dir_path = args.coco_val_image_dir_path
+        annotations_path = args.coco_karpathy_json_path
+    elif dataset_name == "flickr":
+        image_train_dir_path = (
+            args.flickr_image_dir_path
+        )  # Note: calling this "train" for consistency with COCO but Flickr only has one split for images
+        image_val_dir_path = None
+        annotations_path = args.flickr_karpathy_json_path
+    else:
+        raise ValueError(f"Unsupported dataset: {dataset_name}")
+
+    assert demo_mode is not None and visual_demo_mode is not None, (
+        f"demo_mode={demo_mode} and visual_demo_mode={visual_demo_mode} must be specified."
+    )
+    logger.info(f"demo_mode={demo_mode}, visual_demo_mode={visual_demo_mode}")
+    if demo_mode != "gold":
+        raise NotImplementedError("Only gold demo mode is supported for captioning.")
+    else:
+        train_dataset = CaptionDataset(
+            image_train_dir_path=image_train_dir_path,
+            image_val_dir_path=image_val_dir_path,
+            annotations_path=annotations_path,
+            is_train=True,
+            dataset_name=dataset_name if dataset_name != "nocaps" else "coco",
+        )
+
+    test_dataset = CaptionDataset(
+        image_train_dir_path=image_train_dir_path,
+        image_val_dir_path=image_val_dir_path,
+        annotations_path=annotations_path,
+        is_train=False,
+        dataset_name=dataset_name,
+    )
+
+    # num_shots should > 0, otherwise, it will be set to 2
+    effective_num_shots = utils.compute_effective_num_shots(num_shots, args.model)
+    logger.info(f"Effective number of shots: {effective_num_shots}")
+
+    np.random.seed(seed)
+    test_dataloader = utils.prepare_eval_samples(
+        test_dataset,
+        args.num_samples if args.num_samples > 0 else len(test_dataset),
+        args.batch_size,
+    )
+
+    if args.rices:
+        rices_dataset = RICES(
+            train_dataset,
+            eval_model.device,
+            args.batch_size,
+            cached_features=cached_features,
+            vision_encoder_path=args.rices_vision_encoder_path,
+            vision_encoder_pretrained=args.rices_vision_encoder_pretrained,
+        )
+    else:
+        # subset of the training set to sample context images from
+        query_set = utils.get_query_set(train_dataset, args.query_set_size)
+
+    utils.random_seed(seed, args.rank)
+    predictions = defaultdict()
+    for batch in tqdm(
+        test_dataloader,
+        desc=f"Running inference {dataset_name.upper()}",
+        disable=args.rank != 0,
+    ):
+        batch_images, batch_text = prepare_caption_batch(
+            args=args,
+            rices_dataset=rices_dataset if args.rices else None,
+            batch=batch,
+            effective_num_shots=effective_num_shots,
+            query_set=query_set,
+            num_shots=num_shots,
+            eval_model=eval_model,
+            visual_demo_mode=visual_demo_mode
+        )
+        outputs = eval_model.get_outputs(
+            batch_images=batch_images,
+            batch_text=batch_text,
+            min_generation_length=min_generation_length,
+            max_generation_length=max_generation_length,
+            num_beams=num_beams,
+            length_penalty=length_penalty,
+        )
+
+        new_predictions = [
+            postprocess_captioning_generation(out).replace('"', "") for out in outputs
+        ]
+
+        for i, sample_id in enumerate(batch["image_id"]):
+            predictions[sample_id] = {
+                "caption": new_predictions[i],
+            }
+
+    # all gather
+    all_predictions = [None for _ in range(args.world_size)]
+    torch.distributed.all_gather_object(all_predictions, predictions)  # list of dicts
+
+    if args.rank != 0:
+        return None
+
+    all_predictions = {
+        k: v for d in all_predictions for k, v in d.items()
+    }  # merge dicts
+
+    # save the predictions to a temporary file
+    # results_path = f"{dataset_name}results_{uuid.uuid4()}_num_shots_{num_shots}.json"
+    results_path = os.path.join(experiment_base_dir if experiment_base_dir is not None else '',
+                               f"{dataset_name}_results_shots_{num_shots}.json")
+
+    with open(results_path, "w") as f:
+        f.write(
+            json.dumps(
+                [
+                    {"image_id": k, "caption": all_predictions[k]["caption"]}
+                    for k in all_predictions
+                ],
+                indent=4,
+            )
+        )
+
+    metrics = compute_cider(
+        result_path=results_path,
+        annotations_path=args.coco_annotations_json_path
+        if dataset_name == "coco"
+        else args.flickr_annotations_json_path,
+    )
+
+    # delete the temporary file
+    # os.remove(results_path)
+
+    return metrics["CIDEr"] * 100.0
+
+
+def prepare_caption_batch(
+        args,
+        rices_dataset,
+        batch,
+        effective_num_shots,
+        query_set,
+        num_shots,
+        eval_model,
+        visual_demo_mode,
+):
+    assert visual_demo_mode in ["random", "no_images"], (
+        f"Unsupported visual demo mode: {visual_demo_mode}"
+    )
+    if visual_demo_mode == "random":
+        if args.rices:
+            batch_demo_samples = rices_dataset.find(batch["image"], effective_num_shots)
+        else:
+            batch_demo_samples = utils.sample_batch_demos_from_query_set(
+                query_set, effective_num_shots, len(batch["image"])
+            )
+
+        batch_images = []
+        batch_text = []
+        for i in range(len(batch["image"])):
+            if num_shots > 0:
+                context_images = [x["image"] for x in batch_demo_samples[i]]
+            else:
+                context_images = []
+            batch_images.append(context_images + [batch["image"][i]])
+
+            context_text = "".join(
+                [
+                    eval_model.get_caption_prompt(caption=x["caption"].strip()) + "\n"
+                    for x in batch_demo_samples[i]
+                ]
+            )
+            # logger.critical(f"context_text: {context_text} do task recognition: {demo_mode}")
+            # assert False
+            # Keep the text but remove the image tags for the zero-shot case
+            if num_shots == 0:
+                context_text = context_text.replace("<image>", "")
+
+            batch_text.append(context_text + eval_model.get_caption_prompt())
+
+        return batch_images, batch_text
+
+    elif visual_demo_mode == "no_images":
+        batch_images = []
+        batch_text = []
+        batch_demo_samples = utils.sample_batch_demos_from_query_set(
+            query_set, effective_num_shots, len(batch["image"])
+        )
+        for i in range(len(batch["image"])):
+            batch_images.append([] + [batch["image"][i]])
+            context_text = "".join(
+                [
+                    eval_model.get_caption_prompt(caption=x["caption"].strip()) + "\n"
+                    for x in batch_demo_samples[i]
+                ]
+            )
+            context_text = context_text.replace("<image>", "")
+            batch_text.append(context_text + eval_model.get_caption_prompt())
+
+        return batch_images, batch_text
 
 
 def prepare_vqa_batch(
@@ -1658,13 +1730,15 @@ def get_img_in_category(coco, category_list):
 def evaluate_classification(
     args: argparse.Namespace,
     eval_model,
+    visual_demo_mode,
+    demo_mode,
     seed: int = 42,
     num_shots: int = 8,
     dataset_name: str = "imagenet",
     cached_features=None,
     no_kv_caching=False,
-    demo_mode=False,
     use_prompt_ensembling: bool = False,
+    experiment_base_dir: str = None,
 ):
     """
     Evaluate a model on classification dataset.
@@ -1680,6 +1754,7 @@ def evaluate_classification(
     Returns:
         float: accuracy score
     """
+    logger.info(f"Evaluating Classification Task on {dataset_name}...")
     if args.model != "open_flamingo":
         raise NotImplementedError(
             "evaluate_classification is currently only supported for OpenFlamingo"
@@ -1829,6 +1904,11 @@ def evaluate_classification(
     all_predictions = [
         item for sublist in all_predictions for item in sublist
     ]  # flatten
+
+    result_file = os.path.join(experiment_base_dir if experiment_base_dir is not None else '',
+                               f"{dataset_name}_results_shots_{num_shots}.json")
+    with open(result_file, "w") as f:
+        json.dump(all_predictions, f)
 
     if dataset_name == "hateful_memes":
         # return ROC-AUC score
