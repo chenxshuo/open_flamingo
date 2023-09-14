@@ -1,8 +1,82 @@
 import numpy as np
 import torch
 import random
+import os
 import torch.nn as nn
+import time
 from contextlib import suppress
+import logging
+
+logger = logging.getLogger(__name__)
+
+
+def create_experiment_dir(args, model_args):
+    """
+    Create a directory for the experiment.
+
+    model: OF3B, OF4B, OF4BI, OF9B
+    dataset: vqav2, gqa, okvqa, textvqa, vizwiz, coco, flickr30, hatefulmemes
+    demo_mode
+    visual_demo_mode
+    shot
+
+    BASE_PATH/model/demo_mode_{demo_mode}/visual_demo_mode_{visual_demo_mode}/exp_time/evaluation_results.json
+    BASE_PATH/model/demo_mode_{demo_mode}/visual_demo_mode_{visual_demo_mode}/exp_time/prediction_results.json
+    """
+    BASE_PATH = "/dss/dssmcmlfs01/pn34sa/pn34sa-dss-0000/robustness/in-context-open-flamingo/open_flamingo_2-0/.experimental_results"
+    if not os.path.exists(BASE_PATH):
+        os.makedirs(BASE_PATH)
+    if "9B" in model_args["checkpoint_path"]:
+        model = "OF9B"
+    else:
+        raise NotImplementedError("Only OF9B is supported for now.")
+
+    demo_mode = args.demo_mode
+    visual_demo_mode = args.visual_demo_mode
+    shot = args.shots
+    shot = "_".join([str(s) for s in shot])
+    evaluate_tasks = []
+    if args.eval_vqav2:
+        evaluate_tasks.append("vqav2")
+    if args.eval_gqa:
+        evaluate_tasks.append("gqa")
+    if args.eval_ok_vqa:
+        evaluate_tasks.append("ok_vqa")
+    if args.eval_textvqa:
+        evaluate_tasks.append("textvqa")
+    if args.eval_vizwiz:
+        evaluate_tasks.append("vizwiz")
+    if args.eval_coco:
+        evaluate_tasks.append("coco")
+    if args.eval_flickr30:
+        evaluate_tasks.append("flickr30")
+    if args.eval_hateful_memes:
+        evaluate_tasks.append("hateful_memes")
+
+    evaluate_tasks = "_".join(evaluate_tasks)
+    # time in  format 2021-06-30_15-00-00
+    experiment_time = time.strftime("%Y-%m-%d_%H-%M-%S", time.localtime())
+    experiment_base_dir = os.path.join(
+        BASE_PATH,
+        f"{model}",
+        f"demo_mode_{demo_mode}",
+        f"visual_demo_mode_{visual_demo_mode}",
+        f"{evaluate_tasks}",
+        f"shot_{shot}",
+        f"{experiment_time}",
+    )
+
+    if args.rank == 0:
+        if not os.path.exists(experiment_base_dir):
+            os.makedirs(experiment_base_dir)
+        logger.info(f"======= Created experiment directory: {experiment_base_dir} =======")
+        logger.info(f"========Arguments used for this experiment========")
+        # print namespace object line by line
+        for arg in vars(args):
+            logger.info(f"{arg}: {getattr(args, arg)}")
+        for arg in model_args:
+            logger.info(f"{arg}: {model_args[arg]}")
+    return experiment_base_dir
 
 
 def random_seed(seed=42, rank=0):
