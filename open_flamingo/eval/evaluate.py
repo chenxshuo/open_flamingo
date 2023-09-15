@@ -634,7 +634,12 @@ def main():
 
     if args.eval_gqa:
         logger.info("Evaluating on GQA...")
-        cached_features = None
+        if args.cached_demonstration_features is not None:
+            cached_features = torch.load(
+                f"{args.cached_demonstration_features}/coco.pkl", map_location="cpu"
+            )
+        else:
+            cached_features = None
         for shot in args.shots:
             scores = []
             time_cost = []
@@ -1468,14 +1473,13 @@ def prepare_caption_batch(
     assert visual_demo_mode in ["random", "no_images"], (
         f"Unsupported visual demo mode: {visual_demo_mode}"
     )
+    if args.rices:
+        batch_demo_samples = rices_dataset.find(batch["image"], effective_num_shots)
+    else:
+        batch_demo_samples = utils.sample_batch_demos_from_query_set(
+            query_set, effective_num_shots, len(batch["image"])
+        )
     if visual_demo_mode == "random":
-        if args.rices:
-            batch_demo_samples = rices_dataset.find(batch["image"], effective_num_shots)
-        else:
-            batch_demo_samples = utils.sample_batch_demos_from_query_set(
-                query_set, effective_num_shots, len(batch["image"])
-            )
-
         batch_images = []
         batch_text = []
         for i in range(len(batch["image"])):
@@ -1504,9 +1508,6 @@ def prepare_caption_batch(
     elif visual_demo_mode == "no_images":
         batch_images = []
         batch_text = []
-        batch_demo_samples = utils.sample_batch_demos_from_query_set(
-            query_set, effective_num_shots, len(batch["image"])
-        )
         for i in range(len(batch["image"])):
             batch_images.append([] + [batch["image"][i]])
             context_text = "".join(
