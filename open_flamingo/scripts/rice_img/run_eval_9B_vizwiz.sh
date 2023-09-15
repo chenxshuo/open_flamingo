@@ -8,6 +8,7 @@ VIZWIZ_TRAIN_QUES_PATH="${ANNO_BASE}/train_questions_vqa_format.json"
 VIZWIZ_TRAIN_ANNO_PATH="${ANNO_BASE}/train_annotations_vqa_format.json"
 VIZWIZ_VAL_QUES_PATH="${ANNO_BASE}/val_questions_vqa_format.json"
 VIZWIZ_VAL_ANNO_PATH="${ANNO_BASE}/val_annotations_vqa_format.json"
+OUT_DIR="/dss/dssmcmlfs01/pn34sa/pn34sa-dss-0000/robustness/datasets/vizwiz/rice_features"
 
 
 # 9B
@@ -19,10 +20,10 @@ SHOTS=$1
 MASTER_PORT=$2
 BS=$3
 
-export CUDA_VISIBLE_DEVICES=0,1,2,3
+export CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7
 NUM_GPUs=`echo $CUDA_VISIBLE_DEVICES | grep -P -o '\d' | wc -l`
 TIMESTAMP=`date +"%Y-%m-%d-%T"`
-COMMENT="9B-reproduce-vizwiz-shots-${SHOTS}"
+COMMENT="9B-rice-vizwiz-shots-${SHOTS}"
 RESULTS_FILE="results_${TIMESTAMP}_${COMMENT}.json"
 torchrun --nnodes=1 --nproc_per_node="$NUM_GPUs" --master_port=${MASTER_PORT} open_flamingo/eval/evaluate.py \
     --vision_encoder_path ViT-L-14 \
@@ -39,6 +40,10 @@ torchrun --nnodes=1 --nproc_per_node="$NUM_GPUs" --master_port=${MASTER_PORT} op
     --trial_seeds 22 33 88 \
     --demo_mode  "gold" \
     --visual_demo_mode "random" \
+    --rices \
+    --cached_demonstration_features ${OUT_DIR} \
+    --vision_encoder_path ViT-L-14 \
+    --vision_encoder_pretrained openai \
     --eval_vizwiz \
     --vizwiz_train_image_dir_path ${VIZWIZ_TRAIN_IMG} \
     --vizwiz_test_image_dir_path ${VIZWIZ_VAL_IMG} \

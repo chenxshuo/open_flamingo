@@ -11,8 +11,8 @@ sys.path.append(
         "..",
     )
 )
-from eval.rices import RICES
-from eval.eval_datasets import (
+from open_flamingo.eval.rices import RICES
+from open_flamingo.eval.eval_datasets import (
     CaptionDataset,
     VQADataset,
     ImageNetDataset,
@@ -30,7 +30,7 @@ parser.add_argument(
 )
 parser.add_argument("--vision_encoder_path", default="ViT-L-14", type=str)
 parser.add_argument("--vision_encoder_pretrained", default="openai", type=str)
-parser.add_argument("--batch_size", default=256)
+parser.add_argument("--batch_size", default=256, type=int)
 
 # Per-dataset flags
 parser.add_argument(
@@ -141,6 +141,32 @@ parser.add_argument(
     default=None,
 )
 
+## GQA Dataset
+parser.add_argument(
+    "--eval_gqa",
+    action="store_true",
+    default=False,
+    help="Whether to cache Flickr30.",
+)
+parser.add_argument(
+    "--gqa_image_dir_path",
+    type=str,
+    help="Path to the gqa images directory.",
+    default=None,
+)
+parser.add_argument(
+    "--gqa_train_questions_json_path",
+    type=str,
+    help="Path to the gqa questions json file.",
+    default=None,
+)
+parser.add_argument(
+    "--gqa_train_annotations_json_path",
+    type=str,
+    help="Path to the gqa annotations json file.",
+    default=None,
+)
+
 ## OK-VQA Dataset
 parser.add_argument(
     "--ok_vqa_train_image_dir_path",
@@ -220,6 +246,7 @@ parser.add_argument(
 
 def main():
     args, leftovers = parser.parse_known_args()
+    # print all args line by line
     device_id = torch.cuda.current_device() if torch.cuda.is_available() else "cpu"
     if args.eval_flickr30:
         print("Caching Flickr30k...")
@@ -237,6 +264,8 @@ def main():
             vision_encoder_path=args.vision_encoder_path,
             vision_encoder_pretrained=args.vision_encoder_pretrained,
         )
+        if not os.path.exists(args.output_dir):
+            os.mkdir(args.output_dir)
         torch.save(
             rices_dataset.features,
             os.path.join(args.output_dir, "flickr30.pkl"),
@@ -258,6 +287,8 @@ def main():
             vision_encoder_path=args.vision_encoder_path,
             vision_encoder_pretrained=args.vision_encoder_pretrained,
         )
+        if not os.path.exists(args.output_dir):
+            os.mkdir(args.output_dir)
         torch.save(
             rices_dataset.features,
             os.path.join(args.output_dir, "coco.pkl"),
@@ -279,10 +310,36 @@ def main():
             vision_encoder_path=args.vision_encoder_path,
             vision_encoder_pretrained=args.vision_encoder_pretrained,
         )
+        if not os.path.exists(args.output_dir):
+            os.mkdir(args.output_dir)
         torch.save(
             rices_dataset.features,
             os.path.join(args.output_dir, "ok_vqa.pkl"),
         )
+
+    if args.eval_gqa:
+        print("Caching GQA...")
+        train_dataset = VQADataset(
+            image_dir_path=args.gqa_image_dir_path,
+            question_path=args.gqa_train_questions_json_path,
+            annotations_path=args.gqa_train_annotations_json_path,
+            is_train=True,
+            dataset_name="gqa",
+        )
+        rices_dataset = RICES(
+            train_dataset,
+            device_id,
+            args.batch_size,
+            vision_encoder_path=args.vision_encoder_path,
+            vision_encoder_pretrained=args.vision_encoder_pretrained,
+        )
+        if not os.path.exists(args.output_dir):
+            os.mkdir(args.output_dir)
+        torch.save(
+            rices_dataset.features,
+            os.path.join(args.output_dir, "gqa.pkl"),
+        )
+
 
     if args.eval_vizwiz:
         print("Caching VizWiz...")
@@ -300,6 +357,8 @@ def main():
             vision_encoder_path=args.vision_encoder_path,
             vision_encoder_pretrained=args.vision_encoder_pretrained,
         )
+        if not os.path.exists(args.output_dir):
+            os.mkdir(args.output_dir)
         torch.save(
             rices_dataset.features,
             os.path.join(args.output_dir, "vizwiz.pkl"),
@@ -321,6 +380,8 @@ def main():
             vision_encoder_path=args.vision_encoder_path,
             vision_encoder_pretrained=args.vision_encoder_pretrained,
         )
+        if not os.path.exists(args.output_dir):
+            os.mkdir(args.output_dir)
         torch.save(
             rices_dataset.features,
             os.path.join(args.output_dir, "vqav2.pkl"),
@@ -342,6 +403,8 @@ def main():
             vision_encoder_path=args.vision_encoder_path,
             vision_encoder_pretrained=args.vision_encoder_pretrained,
         )
+        if not os.path.exists(args.output_dir):
+            os.mkdir(args.output_dir)
         torch.save(
             rices_dataset.features,
             os.path.join(args.output_dir, "textvqa.pkl"),
@@ -360,6 +423,8 @@ def main():
             vision_encoder_path=args.vision_encoder_path,
             vision_encoder_pretrained=args.vision_encoder_pretrained,
         )
+        if not os.path.exists(args.output_dir):
+            os.mkdir(args.output_dir)
         torch.save(
             rices_dataset.features,
             os.path.join(args.output_dir, "hateful_memes.pkl"),
