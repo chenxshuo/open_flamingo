@@ -28,9 +28,10 @@ def create_experiment_dir(args, model_args):
         os.makedirs(BASE_PATH)
     if "9B" in model_args["checkpoint_path"]:
         model = "OF9B"
+    elif "3B" in model_args["checkpoint_path"]:
+        model = "OF3B"
     else:
-        raise NotImplementedError("Only OF9B is supported for now.")
-
+        raise NotImplementedError("Only OF9B, OF3B is supported for now.")
     demo_mode = args.demo_mode
     visual_demo_mode = args.visual_demo_mode
     shot = args.shots
@@ -56,15 +57,27 @@ def create_experiment_dir(args, model_args):
     evaluate_tasks = "_".join(evaluate_tasks)
     # time in  format 2021-06-30_15-00-00
     experiment_time = time.strftime("%Y-%m-%d_%H-%M-%S", time.localtime())
-    experiment_base_dir = os.path.join(
-        BASE_PATH,
-        f"{model}",
-        f"demo_mode_{demo_mode}",
-        f"visual_demo_mode_{visual_demo_mode}",
-        f"{evaluate_tasks}",
-        f"shot_{shot}",
-        f"{experiment_time}",
-    )
+    if args.rices:
+        experiment_base_dir = os.path.join(
+            BASE_PATH,
+            f"{model}",
+            f"rices",
+            f"demo_mode_{demo_mode}",
+            f"visual_demo_mode_{visual_demo_mode}",
+            f"{evaluate_tasks}",
+            f"shot_{shot}",
+            f"{experiment_time}",
+        )
+    else:
+        experiment_base_dir = os.path.join(
+            BASE_PATH,
+            f"{model}",
+            f"demo_mode_{demo_mode}",
+            f"visual_demo_mode_{visual_demo_mode}",
+            f"{evaluate_tasks}",
+            f"shot_{shot}",
+            f"{experiment_time}",
+        )
 
     if args.rank == 0:
         if not os.path.exists(experiment_base_dir):

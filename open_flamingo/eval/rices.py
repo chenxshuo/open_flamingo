@@ -44,6 +44,7 @@ class RICES:
             self.dataset,
             batch_size=self.batch_size,
             collate_fn=custom_collate_fn,
+            num_workers=8,
         )
 
         with torch.no_grad():
