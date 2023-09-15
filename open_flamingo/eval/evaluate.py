@@ -1397,7 +1397,7 @@ def evaluate_captioning(
             rices_dataset=rices_dataset if args.rices else None,
             batch=batch,
             effective_num_shots=effective_num_shots,
-            query_set=query_set,
+            query_set=query_set if not args.rices else None,
             num_shots=num_shots,
             eval_model=eval_model,
             visual_demo_mode=visual_demo_mode
