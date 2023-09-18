@@ -18,7 +18,7 @@ SHOTS=$1
 MASTER_PORT=$2
 BS=$3
 
-export CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7
+export CUDA_VISIBLE_DEVICES=0,1,2,3
 NUM_GPUs=`echo $CUDA_VISIBLE_DEVICES | grep -P -o '\d' | wc -l`
 TIMESTAMP=`date +"%Y-%m-%d-%T"`
 COMMENT="9B-rice-textvqa_${SHOTS}"
@@ -37,7 +37,7 @@ torchrun --nnodes=1 --nproc_per_node="$NUM_GPUs" --master_port=${MASTER_PORT} op
     --shots ${SHOTS} \
     --trial_seeds 42 \
     --demo_mode  "gold" \
-    --visual_demo_mode "random" \
+    --visual_demo_mode "no_images" \
     --rices \
     --cached_demonstration_features ${OUT_DIR} \
     --vision_encoder_path ViT-L-14 \

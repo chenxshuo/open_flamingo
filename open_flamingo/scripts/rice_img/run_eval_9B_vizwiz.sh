@@ -35,9 +35,9 @@ torchrun --nnodes=1 --nproc_per_node="$NUM_GPUs" --master_port=${MASTER_PORT} op
     --results_file ${RESULTS_FILE} \
     --precision amp_bf16 \
     --batch_size ${BS} \
-    --num_trials 3 \
+    --num_trials 1 \
     --shots ${SHOTS} \
-    --trial_seeds 22 33 88 \
+    --trial_seeds 42 \
     --demo_mode  "gold" \
     --visual_demo_mode "random" \
     --rices \

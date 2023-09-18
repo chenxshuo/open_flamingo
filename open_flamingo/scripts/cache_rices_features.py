@@ -340,7 +340,6 @@ def main():
             os.path.join(args.output_dir, "gqa.pkl"),
         )
 
-
     if args.eval_vizwiz:
         print("Caching VizWiz...")
         train_dataset = VQADataset(
