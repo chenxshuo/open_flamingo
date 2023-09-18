@@ -636,7 +636,7 @@ def main():
         logger.info("Evaluating on GQA...")
         if args.cached_demonstration_features is not None:
             cached_features = torch.load(
-                f"{args.cached_demonstration_features}/coco.pkl", map_location="cpu"
+                f"{args.cached_demonstration_features}/gqa.pkl", map_location="cpu"
             )
         else:
             cached_features = None
@@ -1184,7 +1184,7 @@ def evaluate_vqa(
     ):
         batch_images, batch_text = prepare_vqa_batch(
             batch=batch,
-            query_set=query_set,
+            query_set=query_set if not args.rices else None,
             dataset=train_dataset,
             coco=coco,
             eval_model=eval_model,
@@ -1540,14 +1540,13 @@ def prepare_vqa_batch(
     assert visual_demo_mode in ["random", "same_category", "different_number_of_objects", "no_images"], (
         f"Unsupported visual demo mode: {visual_demo_mode}"
     )
+    if args.rices:
+        batch_demo_samples = rices_dataset.find(batch["image"], effective_num_shots)
+    else:
+        batch_demo_samples = utils.sample_batch_demos_from_query_set(
+            query_set, effective_num_shots, len(batch["image"])
+        )
     if visual_demo_mode == "random":
-        if args.rices:
-            batch_demo_samples = rices_dataset.find(batch["image"], effective_num_shots)
-        else:
-            batch_demo_samples = utils.sample_batch_demos_from_query_set(
-                query_set, effective_num_shots, len(batch["image"])
-            )
-
         batch_images, batch_text = [], []
         for i in range(len(batch["image"])):
             if num_shots > 0:
@@ -1674,12 +1673,7 @@ def prepare_vqa_batch(
                 context_text + eval_model.get_vqa_prompt(question=batch["question"][i])
             )
         return batch_images, batch_text
-
     elif visual_demo_mode == "no_images":
-        batch_demo_samples = utils.sample_batch_demos_from_query_set(
-            query_set, effective_num_shots, len(batch["image"])
-        )
-
         batch_images, batch_text = [], []
         for i in range(len(batch["image"])):
             batch_images.append([] + [batch["image"][i]])
