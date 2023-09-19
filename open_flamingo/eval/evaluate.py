@@ -9,6 +9,8 @@ import logging
 import time as time
 from PIL import Image
 
+from datasets import load_dataset
+
 from einops import repeat
 import more_itertools
 import numpy as np
@@ -99,6 +101,8 @@ parser.add_argument(
              "same_category", # same category images demo
              "different_number_of_objects", # different number of objects demo
              "no_images", # no images in demo
+             "blank_images", # blank images in demo
+             "ood_images", # ood images in demo
              ]
 )
 
@@ -547,6 +551,13 @@ def main():
 
     results = defaultdict(list)
 
+    if args.visual_demo_mode == "ood_images":
+        dataset = load_dataset("flaviagiammarino/vqa-rad")
+        ood_images = dataset["train"]["image"]
+    else:
+        ood_images = None
+
+
     if args.eval_flickr30:
         logging.info("Evaluating on Flickr30k...")
         print("Evaluating on Flickr30k...")
@@ -579,6 +590,7 @@ def main():
                     visual_demo_mode=args.visual_demo_mode,
                     cached_features=cached_features,
                     experiment_base_dir=experiment_base_dir,
+                    ood_images=ood_images,
                 )
                 time_end = time.time()
                 time_cost.append(time_end - time_start)
@@ -632,6 +644,7 @@ def main():
                     visual_demo_mode=args.visual_demo_mode,
                     cached_features=cached_features,
                     experiment_base_dir=experiment_base_dir,
+                    ood_images=ood_images,
                 )
                 time_end = time.time()
                 time_cost.append(time_end - time_start)
@@ -683,6 +696,7 @@ def main():
                     visual_demo_mode=args.visual_demo_mode,
                     cached_features=cached_features,
                     experiment_base_dir=experiment_base_dir,
+                    ood_images=ood_images,
                 )
                 time_end = time.time()
                 time_cost.append(time_end - time_start)
@@ -737,6 +751,7 @@ def main():
                     visual_demo_mode=args.visual_demo_mode,
                     cached_features=cached_features,
                     experiment_base_dir=experiment_base_dir,
+                    ood_images=ood_images,
                 )
                 time_end = time.time()
                 time_cost.append(time_end - time_start)
@@ -791,6 +806,7 @@ def main():
                     visual_demo_mode=args.visual_demo_mode,
                     cached_features=cached_features,
                     experiment_base_dir=experiment_base_dir,
+                    ood_images=ood_images,
                 )
                 time_end = time.time()
                 time_cost.append(time_end - time_start)
@@ -844,6 +860,7 @@ def main():
                     visual_demo_mode=args.visual_demo_mode,
                     cached_features=cached_features,
                     experiment_base_dir=experiment_base_dir,
+                    ood_images=ood_images,
                 )
                 time_end = time.time()
                 time_cost.append(time_end - time_start)
@@ -897,6 +914,7 @@ def main():
                     visual_demo_mode=args.visual_demo_mode,
                     cached_features=cached_features,
                     experiment_base_dir=experiment_base_dir,
+                    ood_images=ood_images,
                 )
                 time_end = time.time()
                 time_cost.append(time_end - time_start)
@@ -1116,6 +1134,7 @@ def evaluate_vqa(
     dataset_name: str = "vqav2",
     cached_features=None,
     experiment_base_dir=None,
+    ood_images=None,
 ):
     """
     Evaluate a model on VQA datasets. Currently supports VQA v2.0, OK-VQA, VizWiz and TextVQA.
@@ -1266,6 +1285,7 @@ def evaluate_vqa(
             jpeg_train_to_info=jpeg_train_to_info,
             jpeg_val_to_info=jpeg_val_to_info,
             rices_dataset=rices_dataset,
+            ood_images=ood_images,
         )
         outputs = eval_model.get_outputs(
             batch_images=batch_images,
@@ -1376,6 +1396,7 @@ def evaluate_captioning(
     dataset_name: str = "coco",
     cached_features=None,
     experiment_base_dir=None,
+    ood_images=None,
 ):
     """Evaluate a model on COCO dataset.
 
@@ -1480,7 +1501,8 @@ def evaluate_captioning(
             query_set=query_set,
             num_shots=num_shots,
             eval_model=eval_model,
-            visual_demo_mode=visual_demo_mode
+            visual_demo_mode=visual_demo_mode,
+            ood_images=ood_images
         )
         outputs = eval_model.get_outputs(
             batch_images=batch_images,
@@ -1549,8 +1571,9 @@ def prepare_caption_batch(
         num_shots,
         eval_model,
         visual_demo_mode,
+        ood_images=None,
 ):
-    assert visual_demo_mode in ["random", "no_images"], (
+    assert visual_demo_mode in ["random", "no_images", "blank_images", "ood_images"], (
         f"Unsupported visual demo mode: {visual_demo_mode}"
     )
     if args.rices:
@@ -1610,6 +1633,42 @@ def prepare_caption_batch(
 
         return batch_images, batch_text
 
+    elif visual_demo_mode == "blank_images":
+        batch_images = []
+        batch_text = []
+        for i in range(len(batch["image"])):
+            # insert blank images
+            context_images = [Image.new(mode="RGB", size=(450, 350), color=(255, 255, 255)) for x in batch_demo_samples[i]]
+            batch_images.append(context_images + [batch["image"][i]])
+            context_text = "".join(
+                [
+                    eval_model.get_caption_prompt(caption=x["caption"].strip()) + "\n"
+                    for x in batch_demo_samples[i]
+                ]
+            )
+            batch_text.append(context_text + eval_model.get_caption_prompt())
+
+        return batch_images, batch_text
+
+    elif visual_demo_mode == "ood_images":
+        assert ood_images is not None
+        batch_images = []
+        batch_text = []
+        for i in range(len(batch["image"])):
+            # insert random OOD images
+            context_images = [random.sample(ood_images, 1)[0] for x in
+                              batch_demo_samples[i]]
+            batch_images.append(context_images + [batch["image"][i]])
+            context_text = "".join(
+                [
+                    eval_model.get_caption_prompt(caption=x["caption"].strip()) + "\n"
+                    for x in batch_demo_samples[i]
+                ]
+            )
+            batch_text.append(context_text + eval_model.get_caption_prompt())
+
+        return batch_images, batch_text
+
 
 def prepare_vqa_batch(
         batch,
@@ -1624,9 +1683,10 @@ def prepare_vqa_batch(
         visual_demo_mode,
         jpeg_train_to_info,
         jpeg_val_to_info,
-        rices_dataset
+        rices_dataset,
+        ood_images=None,
 ):
-    assert visual_demo_mode in ["random", "same_category", "different_number_of_objects", "no_images"], (
+    assert visual_demo_mode in ["random", "same_category", "different_number_of_objects", "no_images", "blank_images", "ood_images"], (
         f"Unsupported visual demo mode: {visual_demo_mode}"
     )
     if args.rices:
@@ -1798,6 +1858,65 @@ def prepare_vqa_batch(
         #                 f"batch_images: {batch_images}")
         # assert False
         return batch_images, batch_text
+    elif visual_demo_mode == "blank_images":
+        batch_images, batch_text = [], []
+        for i in range(len(batch["image"])):
+            if num_shots > 0:
+                context_images = [Image.new(mode="RGB", size=(450, 350), color=(255, 255, 255)) for x in batch_demo_samples[i]]
+            else:
+                context_images = []
+            batch_images.append(context_images + [batch["image"][i]])
+
+            context_text = "".join(
+                [
+                    eval_model.get_vqa_prompt(
+                        question=x["question"], answer=x["answers"][0]
+                    )
+                    + "\n"
+                    for x in batch_demo_samples[i]
+                ]
+            )
+
+            # Keep the text but remove the image tags for the zero-shot case
+            if num_shots == 0:
+                context_text = context_text.replace("<image>", "")
+
+            batch_text.append(
+                context_text + eval_model.get_vqa_prompt(question=batch["question"][i])
+            )
+        # logger.critical(f"Batch text: {batch_text}")
+        return batch_images, batch_text
+    elif visual_demo_mode == "ood_images":
+        batch_images, batch_text = [], []
+        for i in range(len(batch["image"])):
+            if num_shots > 0:
+                context_images = [random.sample(ood_images, 1)[0] for x in
+                                  batch_demo_samples[i]]
+            else:
+                context_images = []
+            batch_images.append(context_images + [batch["image"][i]])
+
+            context_text = "".join(
+                [
+                    eval_model.get_vqa_prompt(
+                        question=x["question"], answer=x["answers"][0]
+                    )
+                    + "\n"
+                    for x in batch_demo_samples[i]
+                ]
+            )
+
+            # Keep the text but remove the image tags for the zero-shot case
+            if num_shots == 0:
+                context_text = context_text.replace("<image>", "")
+
+            batch_text.append(
+                context_text + eval_model.get_vqa_prompt(question=batch["question"][i])
+            )
+        # logger.critical(f"Batch text: {batch_text}")
+        return batch_images, batch_text
+
+
     else:
         raise ValueError(f"Unknown visual demo mode: {visual_demo_mode}")
 

@@ -3,10 +3,10 @@
 #bash open_flamingo/scripts/rice_text/run_eval_9B_coco.sh 4 25000 32 &> ./logs/rice_text/out-rice-img-9B-coco-shot-4.text
 #bash open_flamingo/scripts/rice_text/run_eval_9B_coco.sh 8 25001 16 &> ./logs/rice_text/out-rice-img-9B-coco-shot-8.text
 #bash open_flamingo/scripts/rice_text/run_eval_9B_coco.sh 16 25002 8 &> ./logs/rice_text/out-rice-img-9B-coco-shot-16.text
-bash open_flamingo/scripts/rice_text/run_eval_9B_coco.sh 32 25003 8 &> ./logs/rice_text/out-rice-img-9B-coco-shot-32.text
+#bash open_flamingo/scripts/rice_text/run_eval_9B_coco.sh 32 25003 8 &> ./logs/rice_text/out-rice-img-9B-coco-shot-32.text
 
 #bash open_flamingo/scripts/rice_text/run_eval_9B_flickr30k.sh 4 25004 32 &> ./logs/rice_text/out-rice-img-9B-flickr30k-shot-4.text
-bash open_flamingo/scripts/rice_text/run_eval_9B_flickr30k.sh 8 25005 16 &> ./logs/rice_text/out-rice-img-9B-flickr30k-shot-8.text
+#bash open_flamingo/scripts/rice_text/run_eval_9B_flickr30k.sh 8 25005 16 &> ./logs/rice_text/out-rice-img-9B-flickr30k-shot-8.text
 #bash open_flamingo/scripts/rice_text/run_eval_9B_flickr30k.sh 16 25006 8 &> ./logs/rice_text/out-rice-img-9B-flickr30k-shot-16.text
 bash open_flamingo/scripts/rice_text/run_eval_9B_flickr30k.sh 32 25007 8 &> ./logs/rice_text/out-rice-img-9B-flickr30k-shot-32.text
 

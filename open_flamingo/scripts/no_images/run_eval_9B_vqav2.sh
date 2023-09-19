@@ -18,12 +18,13 @@ LM_MODEL="anas-awadalla/mpt-7b"
 CROSS_ATTN_EVERY_N_LAYERS=4
 
 
-export CUDA_VISIBLE_DEVICES=0,1,2,3
+export CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7
 
 NUM_GPUs=`echo $CUDA_VISIBLE_DEVICES | grep -P -o '\d' | wc -l`
 TIMESTAMP=`date +"%Y-%m-%d-%T"`
 MODE="gold"
-VISUAL_MODE="no_images"
+#VISUAL_MODE="no_images"
+VISUAL_DEMO_MODE=$4
 
 COMMENT="9BI-vqav2-$MODE-$VISUAL_MODE"
 
@@ -48,7 +49,7 @@ torchrun --nnodes=1 --nproc_per_node="$NUM_GPUs" --master_port=${MASTER_PORT} op
     --shots ${SHOTS} \
     --trial_seeds 42 \
     --demo_mode $MODE \
-    --visual_demo_mode $VISUAL_MODE \
+    --visual_demo_mode $VISUAL_DEMO_MODE \
     --eval_vqav2 \
     --vqav2_train_image_dir_path ${VQAV2_IMG_TRAIN_PATH} \
     --vqav2_train_annotations_json_path ${VQAV2_ANNO_TRAIN_PATH} \

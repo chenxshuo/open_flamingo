@@ -14,7 +14,7 @@ CKPT_PATH="/dss/dssmcmlfs01/pn34sa/pn34sa-dss-0000/.cache/huggingface/hub/models
 LM_MODEL="anas-awadalla/mpt-7b"
 CROSS_ATTN_EVERY_N_LAYERS=4
 
-export CUDA_VISIBLE_DEVICES=0,1,2,3
+export CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7
 NUM_GPUs=`echo $CUDA_VISIBLE_DEVICES | grep -P -o '\d' | wc -l`
 TIMESTAMP=`date +"%Y-%m-%d-%T"`
 
@@ -25,7 +25,9 @@ BS=$3
 #MODE="only_labels"
 #MODE="fixed_pseudo_question_length"
 MODE="gold"
-VISUAL_MODE="no_images"
+#VISUAL_MODE="no_images"
+VISUAL_DEMO_MODE=$4
+
 COMMENT="9B-okvqa-$MODE-$VISUAL_MODE"
 
 RESULTS_FILE="results_${TIMESTAMP}_${COMMENT}.json"
@@ -43,7 +45,7 @@ torchrun --nnodes=1 --nproc_per_node="$NUM_GPUs" --master_port=${MASTER_PORT} op
     --shots ${SHOTS} \
     --trial_seeds 42 \
     --demo_mode  $MODE \
-    --visual_demo_mode $VISUAL_MODE \
+    --visual_demo_mode $VISUAL_DEMO_MODE \
     --eval_ok_vqa \
     --ok_vqa_train_image_dir_path ${COCO_IMG_TRAIN_PATH} \
     --ok_vqa_train_annotations_json_path ${OK_VQA_TRAIN_ANNO_PATH} \

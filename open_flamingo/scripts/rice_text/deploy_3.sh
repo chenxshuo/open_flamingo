@@ -25,14 +25,14 @@
 #bash open_flamingo/scripts/rice_text/run_eval_9B_textvqa.sh 16 26000 8 &> ./logs/rice_text/out-rice-img-9B-textvqa-shot-16.text
 #bash open_flamingo/scripts/rice_text/run_eval_9B_textvqa.sh 32 26000 8 &> ./logs/rice_text/out-rice-img-9B-textvqa-shot-32.text
 #
-bash open_flamingo/scripts/rice_text/run_eval_9B_vizwiz.sh 4 28008 32 &> ./logs/rice_text/out-rice-img-9B-vizwiz-shot-4.text
-bash open_flamingo/scripts/rice_text/run_eval_9B_vizwiz.sh 8 28007 16 &> ./logs/rice_text/out-rice-img-9B-vizwiz-shot-8.text
-bash open_flamingo/scripts/rice_text/run_eval_9B_vizwiz.sh 16 28006 8 &> ./logs/rice_text/out-rice-img-9B-vizwiz-shot-16.text
-bash open_flamingo/scripts/rice_text/run_eval_9B_vizwiz.sh 32 28005 8 &> ./logs/rice_text/out-rice-img-9B-vizwiz-shot-32.text
+#bash open_flamingo/scripts/rice_text/run_eval_9B_vizwiz.sh 4 28008 32 &> ./logs/rice_text/out-rice-img-9B-vizwiz-shot-4.text
+#bash open_flamingo/scripts/rice_text/run_eval_9B_vizwiz.sh 8 28007 16 &> ./logs/rice_text/out-rice-img-9B-vizwiz-shot-8.text
+#bash open_flamingo/scripts/rice_text/run_eval_9B_vizwiz.sh 16 28006 8 &> ./logs/rice_text/out-rice-img-9B-vizwiz-shot-16.text
+#bash open_flamingo/scripts/rice_text/run_eval_9B_vizwiz.sh 32 28005 8 &> ./logs/rice_text/out-rice-img-9B-vizwiz-shot-32.text
 
-bash open_flamingo/scripts/rice_text/run_eval_9B_vqav2.sh 4 28001 32 &> ./logs/rice_text/out-rice-img-9B-vqav2-shot-4.text
-bash open_flamingo/scripts/rice_text/run_eval_9B_vqav2.sh 8 28002 16 &> ./logs/rice_text/out-rice-img-9B-vqav2-shot-8.text
-bash open_flamingo/scripts/rice_text/run_eval_9B_vqav2.sh 16 28003 8 &> ./logs/rice_text/out-rice-img-9B-vqav2-shot-16.text
+#bash open_flamingo/scripts/rice_text/run_eval_9B_vqav2.sh 4 28001 32 &> ./logs/rice_text/out-rice-img-9B-vqav2-shot-4.text
+#bash open_flamingo/scripts/rice_text/run_eval_9B_vqav2.sh 8 28002 16 &> ./logs/rice_text/out-rice-img-9B-vqav2-shot-8.text
+#bash open_flamingo/scripts/rice_text/run_eval_9B_vqav2.sh 16 28003 8 &> ./logs/rice_text/out-rice-img-9B-vqav2-shot-16.text
 bash open_flamingo/scripts/rice_text/run_eval_9B_vqav2.sh 32 28004 8 &> ./logs/rice_text/out-rice-img-9B-vqav2-shot-32.text
 
 bash open_flamingo/scripts/rice_text/run_eval_9B_gqa.sh 4 28005 32 &> ./logs/rice_text/out-rice-img-9B-gqa-shot-4.text
