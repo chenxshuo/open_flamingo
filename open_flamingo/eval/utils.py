@@ -68,6 +68,17 @@ def create_experiment_dir(args, model_args):
             f"shot_{shot}",
             f"{experiment_time}",
         )
+    elif args.rices_text:
+        experiment_base_dir = os.path.join(
+            BASE_PATH,
+            f"{model}",
+            f"rices_text",
+            f"demo_mode_{demo_mode}",
+            f"visual_demo_mode_{visual_demo_mode}",
+            f"{evaluate_tasks}",
+            f"shot_{shot}",
+            f"{experiment_time}",
+        )
     else:
         experiment_base_dir = os.path.join(
             BASE_PATH,
@@ -78,10 +89,12 @@ def create_experiment_dir(args, model_args):
             f"shot_{shot}",
             f"{experiment_time}",
         )
-
-    if args.rank == 0:
-        if not os.path.exists(experiment_base_dir):
+    if not os.path.exists(experiment_base_dir):
+        try:
             os.makedirs(experiment_base_dir)
+        except FileExistsError:
+            pass
+    if args.rank == 0:
         logger.info(f"======= Created experiment directory: {experiment_base_dir} =======")
         logger.info(f"========Arguments used for this experiment========")
         # print namespace object line by line

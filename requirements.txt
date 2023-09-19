@@ -21,3 +21,4 @@ sentencepiece
 
 # others
 random-word
+sentence-transformers

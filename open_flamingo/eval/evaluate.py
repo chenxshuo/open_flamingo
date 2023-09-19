@@ -30,6 +30,7 @@ from eval_datasets import (
     HatefulMemesDatasetTR
 )
 from rices import RICES
+from rices_text import RICESText
 from tqdm import tqdm
 
 
@@ -189,6 +190,14 @@ parser.add_argument(
     default=None,
     help="Directory where rices features for all choices of in-context examples are stored as a pkl file with the dataset name. If None, features are re-computed by script.",
 )
+
+
+parser.add_argument(
+    "--rices_text",
+    action="store_true",
+    help="Whether to use RICESText for evaluation. If False, uses random demonstrations.",
+)
+
 
 # Per-dataset evaluation flags
 parser.add_argument(
@@ -526,6 +535,10 @@ def main():
     eval_model.set_device(device_id)
     eval_model.init_distributed()
 
+    file_handler = logging.FileHandler(f'{experiment_base_dir}/logs.log')
+    file_handler.setLevel(logging.DEBUG)
+    logger.addHandler(file_handler)
+
     if args.model != "open_flamingo" and args.shots != [0]:
         raise ValueError("Only 0 shot eval is supported for non-open_flamingo models")
 
@@ -540,9 +553,14 @@ def main():
 
         # load cached demonstration features for RICES
         if args.cached_demonstration_features is not None:
-            cached_features = torch.load(
-                f"{args.cached_demonstration_features}/flickr30.pkl", map_location="cpu"
-            )
+            if args.rices:
+                cached_features = torch.load(
+                    f"{args.cached_demonstration_features}/flickr30.pkl", map_location="cpu"
+                )
+            elif args.rices_text:
+                cached_features = torch.load(
+                    f"{args.cached_demonstration_features}/flickr30_ricestext.pkl", map_location="cpu"
+                )
         else:
             cached_features = None
 
@@ -588,9 +606,14 @@ def main():
         logging.info("Evaluating on COCO...")
         # load cached demonstration features for RICES
         if args.cached_demonstration_features is not None:
-            cached_features = torch.load(
-                f"{args.cached_demonstration_features}/coco.pkl", map_location="cpu"
-            )
+            if args.rices:
+                cached_features = torch.load(
+                    f"{args.cached_demonstration_features}/coco.pkl", map_location="cpu"
+                )
+            elif args.rices_text:
+                cached_features = torch.load(
+                    f"{args.cached_demonstration_features}/coco_ricestext.pkl", map_location="cpu"
+                )
         else:
             cached_features = None
 
@@ -635,9 +658,14 @@ def main():
     if args.eval_gqa:
         logger.info("Evaluating on GQA...")
         if args.cached_demonstration_features is not None:
-            cached_features = torch.load(
-                f"{args.cached_demonstration_features}/gqa.pkl", map_location="cpu"
-            )
+            if args.rices:
+                cached_features = torch.load(
+                    f"{args.cached_demonstration_features}/gqa.pkl", map_location="cpu"
+                )
+            elif args.rices_text:
+                cached_features = torch.load(
+                    f"{args.cached_demonstration_features}/gqa_ricestext.pkl", map_location="cpu"
+                )
         else:
             cached_features = None
         for shot in args.shots:
@@ -683,9 +711,14 @@ def main():
 
         # load cached demonstration features for RICES
         if args.cached_demonstration_features is not None:
-            cached_features = torch.load(
-                f"{args.cached_demonstration_features}/ok_vqa.pkl", map_location="cpu"
-            )
+            if args.rices:
+                cached_features = torch.load(
+                    f"{args.cached_demonstration_features}/ok_vqa.pkl", map_location="cpu"
+                )
+            elif args.rices_text:
+                cached_features = torch.load(
+                    f"{args.cached_demonstration_features}/ok_vqa_ricestext.pkl", map_location="cpu"
+                )
         else:
             cached_features = None
 
@@ -731,9 +764,15 @@ def main():
         logger.info(f"Visual Demonstration Mode: {args.visual_demo_mode}")
         # load cached demonstration features for RICES
         if args.cached_demonstration_features is not None:
-            cached_features = torch.load(
-                f"{args.cached_demonstration_features}/vqav2.pkl", map_location="cpu"
-            )
+            if args.rices:
+                cached_features = torch.load(
+                    f"{args.cached_demonstration_features}/vqav2.pkl", map_location="cpu"
+                )
+            elif args.rices_text:
+                cached_features = torch.load(
+                    f"{args.cached_demonstration_features}/vqav2_ricestext.pkl", map_location="cpu"
+                )
+
         else:
             cached_features = None
 
@@ -779,9 +818,14 @@ def main():
 
         # load cached demonstration features for RICES
         if args.cached_demonstration_features is not None:
-            cached_features = torch.load(
-                f"{args.cached_demonstration_features}/vizwiz.pkl", map_location="cpu"
-            )
+            if args.rices:
+                cached_features = torch.load(
+                    f"{args.cached_demonstration_features}/vizwiz.pkl", map_location="cpu"
+                )
+            elif args.rices_text:
+                cached_features = torch.load(
+                    f"{args.cached_demonstration_features}/vizwiz_ricestext.pkl", map_location="cpu"
+                )
         else:
             cached_features = None
 
@@ -826,9 +870,14 @@ def main():
 
         # load cached demonstration features for RICES
         if args.cached_demonstration_features is not None:
-            cached_features = torch.load(
-                f"{args.cached_demonstration_features}/textvqa.pkl", map_location="cpu"
-            )
+            if args.rices:
+                cached_features = torch.load(
+                    f"{args.cached_demonstration_features}/textvqa.pkl", map_location="cpu"
+                )
+            elif args.rices_text:
+                cached_features = torch.load(
+                    f"{args.cached_demonstration_features}/textvqa_ricestext.pkl", map_location="cpu"
+                )
         else:
             cached_features = None
 
@@ -874,9 +923,14 @@ def main():
 
         # load cached demonstration features for RICES
         if args.cached_demonstration_features is not None:
-            cached_features = torch.load(
-                f"{args.cached_demonstration_features}/imagenet.pkl", map_location="cpu"
-            )
+            if args.rices:
+                cached_features = torch.load(
+                    f"{args.cached_demonstration_features}/imagenet.pkl", map_location="cpu"
+                )
+            elif args.rices_text:
+                cached_features = torch.load(
+                    f"{args.cached_demonstration_features}/imagenet_ricestext.pkl", map_location="cpu"
+                )
         else:
             cached_features = None
 
@@ -926,10 +980,16 @@ def main():
         logging.info("Evaluating on Hateful Memes...")
         # load cached demonstration features for RICES
         if args.cached_demonstration_features is not None:
-            cached_features = torch.load(
-                f"{args.cached_demonstration_features}/hateful_memes.pkl",
-                map_location="cpu",
-            )
+            if args.rices:
+                cached_features = torch.load(
+                    f"{args.cached_demonstration_features}/hateful_memes.pkl",
+                    map_location="cpu",
+                )
+            elif args.rices_text:
+                cached_features = torch.load(
+                    f"{args.cached_demonstration_features}/hateful_memes_ricestext.pkl",
+                    map_location="cpu",
+                )
         else:
             cached_features = None
 
@@ -1164,7 +1224,17 @@ def evaluate_vqa(
             vision_encoder_path=args.rices_vision_encoder_path,
             vision_encoder_pretrained=args.rices_vision_encoder_pretrained,
         )
+        query_set = None
+    elif args.rices_text:
+        rices_dataset = RICESText(
+            train_dataset,
+            eval_model.device,
+            args.batch_size,
+            cached_features=cached_features,
+        )
+        query_set = None
     else:
+        rices_dataset = None
         query_set = utils.get_query_set(train_dataset, args.query_set_size)
 
     utils.random_seed(seed, args.rank)
@@ -1184,7 +1254,7 @@ def evaluate_vqa(
     ):
         batch_images, batch_text = prepare_vqa_batch(
             batch=batch,
-            query_set=query_set if not args.rices else None,
+            query_set=query_set,
             dataset=train_dataset,
             coco=coco,
             eval_model=eval_model,
@@ -1195,7 +1265,7 @@ def evaluate_vqa(
             visual_demo_mode=visual_demo_mode,
             jpeg_train_to_info=jpeg_train_to_info,
             jpeg_val_to_info=jpeg_val_to_info,
-            rices_dataset=rices_dataset if args.rices else None,
+            rices_dataset=rices_dataset,
         )
         outputs = eval_model.get_outputs(
             batch_images=batch_images,
@@ -1381,8 +1451,18 @@ def evaluate_captioning(
             vision_encoder_path=args.rices_vision_encoder_path,
             vision_encoder_pretrained=args.rices_vision_encoder_pretrained,
         )
+        query_set = None
+    elif args.rices_text:
+        rices_dataset = RICESText(
+            train_dataset,
+            eval_model.device,
+            args.batch_size,
+            cached_features=cached_features,
+        )
+        query_set = None
     else:
         # subset of the training set to sample context images from
+        rices_dataset = None
         query_set = utils.get_query_set(train_dataset, args.query_set_size)
 
     utils.random_seed(seed, args.rank)
@@ -1394,10 +1474,10 @@ def evaluate_captioning(
     ):
         batch_images, batch_text = prepare_caption_batch(
             args=args,
-            rices_dataset=rices_dataset if args.rices else None,
+            rices_dataset=rices_dataset,
             batch=batch,
             effective_num_shots=effective_num_shots,
-            query_set=query_set if not args.rices else None,
+            query_set=query_set,
             num_shots=num_shots,
             eval_model=eval_model,
             visual_demo_mode=visual_demo_mode
@@ -1475,6 +1555,15 @@ def prepare_caption_batch(
     )
     if args.rices:
         batch_demo_samples = rices_dataset.find(batch["image"], effective_num_shots)
+    elif args.rices_text:
+        batch_demo_samples = rices_dataset.find(batch["caption"], effective_num_shots)
+        # for i in range(len(batch["image"])):
+        #     for sample in batch_demo_samples[i]:
+        # #         logger.critical(f"batch[i]: {batch['image_id'][i]} caption {batch['caption'][i]};"
+        #                         f" batch_demo_samples from RICEs: {sample}\n")
+        #     logger.critical("====================================\n")
+        # logger.critical("******************************************\n")
+
     else:
         batch_demo_samples = utils.sample_batch_demos_from_query_set(
             query_set, effective_num_shots, len(batch["image"])
@@ -1542,6 +1631,20 @@ def prepare_vqa_batch(
     )
     if args.rices:
         batch_demo_samples = rices_dataset.find(batch["image"], effective_num_shots)
+        # for i in range(len(batch["image"])):
+        #     for sample in batch_demo_samples[i]:
+        #         logger.critical(f"batch[i]: {batch['image_file_name'][i]} question {batch['question'][i]} answers {batch['answers'][i]};"
+        #                         f" batch_demo_samples from RICEs: {sample}\n")
+        #     logger.critical("====================================\n")
+        # logger.critical("******************************************\n")
+    elif args.rices_text:
+        batch_demo_samples = rices_dataset.find(batch["question"], effective_num_shots)
+        # for i in range(len(batch["image"])):
+        #     for sample in batch_demo_samples[i]:
+        #         logger.critical(f"batch[i]: {batch['image_file_name'][i]} question {batch['question'][i]} answers {batch['answers'][i]};"
+        #                         f" batch_demo_samples from RICEs: {sample}\n")
+        #     logger.critical("====================================\n")
+        # logger.critical("******************************************\n")
     else:
         batch_demo_samples = utils.sample_batch_demos_from_query_set(
             query_set, effective_num_shots, len(batch["image"])
