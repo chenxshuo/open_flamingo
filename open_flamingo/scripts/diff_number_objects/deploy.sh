@@ -43,14 +43,14 @@
 #echo "number 6 shot 16 done"
 #bash ./open_flamingo/scripts/diff_number_objects/run_eval_vqa_diff_number_objects.sh 8 26009 16 &> ./logs/9B-vqav2-number_objects-8-shots-16.log
 #echo "number 8 shot 16 done"
-bash ./open_flamingo/scripts/diff_number_objects/run_eval_vqa_diff_number_objects.sh 16 26011 16 &> ./logs/9B-vqav2-number_objects-16-shots-16.log
-echo "number 16 shot 16 done"
-bash ./open_flamingo/scripts/diff_number_objects/run_eval_vqa_diff_number_objects.sh 32 26013 16 &> ./logs/9B-vqav2-number_objects-32-shots-16.log
-echo "number 32 shot 16 done"
+#bash ./open_flamingo/scripts/diff_number_objects/run_eval_vqa_diff_number_objects.sh 16 26011 16 &> ./logs/9B-vqav2-number_objects-16-shots-16.log
+#echo "number 16 shot 16 done"
+#bash ./open_flamingo/scripts/diff_number_objects/run_eval_vqa_diff_number_objects.sh 32 26013 16 &> ./logs/9B-vqav2-number_objects-32-shots-16.log
+#echo "number 32 shot 16 done"
 
 
-bash ./open_flamingo/scripts/diff_number_objects/run_eval_vqa_diff_number_objects.sh 0 26001 32 &> ./logs/9B-vqav2-number_objects-0-shots-32.log
-echo "number 0 shot 32 done"
+#bash ./open_flamingo/scripts/diff_number_objects/run_eval_vqa_diff_number_objects.sh 0 26001 32 &> ./logs/9B-vqav2-number_objects-0-shots-32.log
+#echo "number 0 shot 32 done"
 bash ./open_flamingo/scripts/diff_number_objects/run_eval_vqa_diff_number_objects.sh 2 26003 32 &> ./logs/9B-vqav2-number_objects-2-shots-32.log
 echo "number 2 shot 32 done"
 bash ./open_flamingo/scripts/diff_number_objects/run_eval_vqa_diff_number_objects.sh 4 26005 32 &> ./logs/9B-vqav2-number_objects-4-shots-32.log

@@ -26,7 +26,7 @@ BS=$3
 export CUDA_VISIBLE_DEVICES=0,1,2,3
 NUM_GPUs=`echo $CUDA_VISIBLE_DEVICES | grep -P -o '\d' | wc -l`
 TIMESTAMP=`date +"%Y-%m-%d-%T"`
-COMMENT="9B-rice-vqav2-shots-${SHOTS}"
+COMMENT="9B-ricetext-vqav2-shots-${SHOTS}"
 RESULTS_FILE="./results/results_${TIMESTAMP}_${COMMENT}.json"
 torchrun --nnodes=1 --nproc_per_node="$NUM_GPUs" --master_port=${MASTER_PORT} open_flamingo/eval/evaluate.py \
     --vision_encoder_path ViT-L-14 \
@@ -43,10 +43,8 @@ torchrun --nnodes=1 --nproc_per_node="$NUM_GPUs" --master_port=${MASTER_PORT} op
     --trial_seeds 42 \
     --demo_mode  "gold" \
     --visual_demo_mode "random" \
-    --rices \
+    --rices_text \
     --cached_demonstration_features ${VQAv2_OUT_DIR} \
-    --vision_encoder_path ViT-L-14 \
-    --vision_encoder_pretrained openai \
     --eval_vqav2 \
     --vqav2_train_image_dir_path ${VQAV2_IMG_TRAIN_PATH} \
     --vqav2_train_annotations_json_path ${VQAV2_ANNO_TRAIN_PATH} \
