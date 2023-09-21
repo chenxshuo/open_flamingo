@@ -195,6 +195,11 @@ parser.add_argument(
     help="Directory where rices features for all choices of in-context examples are stored as a pkl file with the dataset name. If None, features are re-computed by script.",
 )
 
+parser.add_argument(
+    "--caption_shot_results",
+    default=None,
+    type=str
+)
 
 parser.add_argument(
     "--rices_text",
@@ -572,8 +577,16 @@ def main():
                 cached_features = torch.load(
                     f"{args.cached_demonstration_features}/flickr30_ricestext.pkl", map_location="cpu"
                 )
+                assert args.caption_shot_results is not None
+                caption_shot_raw_results = json.load(open(args.caption_shot_results, "r"))
+                caption_shot_results = {}
+                for dict_item in caption_shot_raw_results:
+                    caption_shot_results.update({
+                        int(dict_item["image_id"]): dict_item["caption"]
+                    })
         else:
             cached_features = None
+            caption_shot_results = None
 
         for shot in args.shots:
             scores = []
@@ -591,6 +604,7 @@ def main():
                     cached_features=cached_features,
                     experiment_base_dir=experiment_base_dir,
                     ood_images=ood_images,
+                    caption_shot_results=caption_shot_results,
                 )
                 time_end = time.time()
                 time_cost.append(time_end - time_start)
@@ -626,8 +640,16 @@ def main():
                 cached_features = torch.load(
                     f"{args.cached_demonstration_features}/coco_ricestext.pkl", map_location="cpu"
                 )
+                assert args.caption_shot_results is not None
+                caption_shot_raw_results = json.load(open(args.caption_shot_results, "r"))
+                caption_shot_results = {}
+                for dict_item in caption_shot_raw_results:
+                    caption_shot_results.update({
+                        int(dict_item["image_id"]): dict_item["caption"]
+                    })
         else:
             cached_features = None
+            caption_shot_results = None
 
         for shot in args.shots:
             scores = []
@@ -645,6 +667,7 @@ def main():
                     cached_features=cached_features,
                     experiment_base_dir=experiment_base_dir,
                     ood_images=ood_images,
+                    caption_shot_results=caption_shot_results,
                 )
                 time_end = time.time()
                 time_cost.append(time_end - time_start)
@@ -1058,7 +1081,7 @@ def main():
         with open(os.path.join(experiment_base_dir, "evaluation_results.json"), "w") as f:
             json.dump(results, f)
 
-    logger.info("Evaluation complete. \n"
+        logger.info("Evaluation complete. \n"
                 f"Experiment results are saved in {experiment_base_dir}")
 
 
@@ -1397,6 +1420,7 @@ def evaluate_captioning(
     cached_features=None,
     experiment_base_dir=None,
     ood_images=None,
+    caption_shot_results = None,
 ):
     """Evaluate a model on COCO dataset.
 
@@ -1502,7 +1526,9 @@ def evaluate_captioning(
             num_shots=num_shots,
             eval_model=eval_model,
             visual_demo_mode=visual_demo_mode,
-            ood_images=ood_images
+            ood_images=ood_images,
+            caption_shot_results=caption_shot_results,
+
         )
         outputs = eval_model.get_outputs(
             batch_images=batch_images,
@@ -1572,6 +1598,7 @@ def prepare_caption_batch(
         eval_model,
         visual_demo_mode,
         ood_images=None,
+        caption_shot_results=None,
 ):
     assert visual_demo_mode in ["random", "no_images", "blank_images", "ood_images"], (
         f"Unsupported visual demo mode: {visual_demo_mode}"
@@ -1579,13 +1606,15 @@ def prepare_caption_batch(
     if args.rices:
         batch_demo_samples = rices_dataset.find(batch["image"], effective_num_shots)
     elif args.rices_text:
-        batch_demo_samples = rices_dataset.find(batch["caption"], effective_num_shots)
+        shot_results = prepare_caption_shot_results(batch, caption_shot_results)
+        batch_demo_samples = rices_dataset.find(shot_results, effective_num_shots)
         # for i in range(len(batch["image"])):
         #     for sample in batch_demo_samples[i]:
-        # #         logger.critical(f"batch[i]: {batch['image_id'][i]} caption {batch['caption'][i]};"
+        #         logger.critical(f"batch[i]: {batch['image_id'][i]} caption {batch['caption'][i]};"
         #                         f" batch_demo_samples from RICEs: {sample}\n")
         #     logger.critical("====================================\n")
         # logger.critical("******************************************\n")
+        # assert False
 
     else:
         batch_demo_samples = utils.sample_batch_demos_from_query_set(
@@ -1668,6 +1697,21 @@ def prepare_caption_batch(
             batch_text.append(context_text + eval_model.get_caption_prompt())
 
         return batch_images, batch_text
+
+def prepare_caption_shot_results(batch, caption_shot_results):
+    """
+    Return prepared caption results for RICEText retrieval
+    Args:
+        batch ():
+
+    Returns:
+
+    """
+    shot_results = []
+    batch_image_id = batch["image_id"]
+    for img_id in batch_image_id:
+        shot_results.append(caption_shot_results[int(img_id)])
+    return shot_results
 
 
 def prepare_vqa_batch(
