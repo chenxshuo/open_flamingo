@@ -17,7 +17,7 @@ SHOTS=$1
 MASTER_PORT=$2
 BS=$3
 
-export CUDA_VISIBLE_DEVICES=0,1,2,3
+export CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7
 NUM_GPUs=`echo $CUDA_VISIBLE_DEVICES | grep -P -o '\d' | wc -l`
 TIMESTAMP=`date +"%Y-%m-%d-%T"`
 COMMENT="9B-rice-flickr30-shots-${SHOTS}"
@@ -30,6 +30,7 @@ torchrun --nnodes=1 --nproc_per_node="$NUM_GPUs" --master_port=${MASTER_PORT} op
     --cross_attn_every_n_layers ${CROSS_ATTN_EVERY_N_LAYERS} \
     --checkpoint_path ${CKPT_PATH} \
     --results_file ${RESULTS_FILE} \
+    --store_demos_and_predictions \
     --precision amp_bf16 \
     --batch_size ${BS} \
     --num_trials 1 \

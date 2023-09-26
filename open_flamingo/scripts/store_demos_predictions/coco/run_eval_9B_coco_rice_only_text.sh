@@ -6,8 +6,7 @@ COCO_IMG_VAL_PATH="${BASE_COCO_DATA_PATH}/val2014"
 COCO_ANNO_PATH="${BASE_COCO_DATA_PATH}/annotations-2014/captions_val2014.json"
 COCO_KARPATHY_PATH="${BASE_COCO_DATA_PATH}/dataset_coco.json"
 COCO_RICE_FEAT="/dss/dssmcmlfs01/pn34sa/pn34sa-dss-0000/robustness/datasets/coco/rice_features"
-#CACHED_SHOT_RESULT="/dss/dssmcmlfs01/pn34sa/pn34sa-dss-0000/robustness/in-context-open-flamingo/open_flamingo_2-0/.experimental_results/OF9B/demo_mode_gold/visual_demo_mode_random/coco/shot_0/2023-09-20_08-28-26/coco_results_shots_0.json"
-CACHED_SHOT_RESULT="/dss/dssmcmlfs01/pn34sa/pn34sa-dss-0000/robustness/in-context-open-flamingo/open_flamingo_2-0/.experimental_results/OF9B/demo_mode_gold/visual_demo_mode_random/coco/shot_32/2023-09-20_14-54-39/coco_results_shots_32.json"
+
 # 9B
 CKPT_PATH="/dss/dssmcmlfs01/pn34sa/pn34sa-dss-0000/.cache/huggingface/hub/models--openflamingo--OpenFlamingo-9B-vitl-mpt7b/snapshots/e6e175603712c7007fe3b9c0d50bdcfbd83adfc2/checkpoint.pt"
 LM_MODEL="anas-awadalla/mpt-7b"
@@ -34,6 +33,7 @@ torchrun --nnodes=1 --nproc_per_node="$NUM_GPUs" --master_port=${MASTER_PORT} op
     --lm_tokenizer_path ${LM_MODEL} \
     --cross_attn_every_n_layers ${CROSS_ATTN_EVERY_N_LAYERS} \
     --checkpoint_path ${CKPT_PATH} \
+    --store_demos_and_predictions \
     --results_file ${RESULTS_FILE} \
     --precision amp_bf16 \
     --batch_size ${BS} \
@@ -41,10 +41,11 @@ torchrun --nnodes=1 --nproc_per_node="$NUM_GPUs" --master_port=${MASTER_PORT} op
     --shots ${SHOTS} \
     --trial_seeds 42 \
     --demo_mode  "gold" \
-    --visual_demo_mode "random" \
-    --rices_text \
+    --visual_demo_mode "no_images" \
+    --rices \
     --cached_demonstration_features ${COCO_RICE_FEAT} \
-    --caption_shot_results  $CACHED_SHOT_RESULT \
+    --vision_encoder_path ViT-L-14 \
+    --vision_encoder_pretrained openai \
     --eval_coco \
     --coco_train_image_dir_path ${COCO_IMG_TRAIN_PATH} \
     --coco_val_image_dir_path ${COCO_IMG_VAL_PATH} \

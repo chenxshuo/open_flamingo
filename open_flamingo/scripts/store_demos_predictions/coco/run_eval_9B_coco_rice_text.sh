@@ -34,6 +34,7 @@ torchrun --nnodes=1 --nproc_per_node="$NUM_GPUs" --master_port=${MASTER_PORT} op
     --lm_tokenizer_path ${LM_MODEL} \
     --cross_attn_every_n_layers ${CROSS_ATTN_EVERY_N_LAYERS} \
     --checkpoint_path ${CKPT_PATH} \
+    --store_demos_and_predictions \
     --results_file ${RESULTS_FILE} \
     --precision amp_bf16 \
     --batch_size ${BS} \
