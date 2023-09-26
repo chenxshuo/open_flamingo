@@ -61,6 +61,13 @@ logger = logging.getLogger(__name__)
 
 parser = argparse.ArgumentParser()
 
+
+parser.add_argument(
+    "--store_demos_and_predictions",
+    action="store_true",
+    help="Whether to store demonstrations and predictions",
+)
+
 parser.add_argument(
     "--demo_mode",
     type=str,
@@ -636,6 +643,7 @@ def main():
                 cached_features = torch.load(
                     f"{args.cached_demonstration_features}/coco.pkl", map_location="cpu"
                 )
+                caption_shot_results = None
             elif args.rices_text:
                 cached_features = torch.load(
                     f"{args.cached_demonstration_features}/coco_ricestext.pkl", map_location="cpu"
@@ -1289,12 +1297,14 @@ def evaluate_vqa(
     coco = COCO(f"{COCO_PATH}/annotations-2014/instances_train2014.json")
     jpeg_train_to_info = json.load(open("generated_data_information/COCO_TRAIN_2014_JPEG_TO_INFO.json"))
     jpeg_val_to_info = json.load(open("generated_data_information/COCO_VAL_2014_JPEG_TO_INFO.json"))
+    if args.store_demos_and_predictions:
+        ques_to_demos_and_predictions = {}
     for batch in tqdm(
         test_dataloader,
         desc=f"Running inference {dataset_name}",
         disable=args.rank != 0,
     ):
-        batch_images, batch_text = prepare_vqa_batch(
+        batch_images, batch_text, batch_demo_samples = prepare_vqa_batch(
             batch=batch,
             query_set=query_set,
             dataset=train_dataset,
@@ -1327,8 +1337,33 @@ def evaluate_vqa(
         )
 
         new_predictions = map(process_function, outputs)
+        batch_predictions = list(new_predictions)
 
-        for new_prediction, sample_id in zip(new_predictions, batch["question_id"]):
+        if args.store_demos_and_predictions:
+            # logger.critical(f"batch predictions length {len(batch_predictions)}")
+            # logger.critical(f"batch length {len(batch['image'])}")
+            # logger.critical(f"batch predictions {list(batch_predictions)}")
+            for i in range(len(batch["image"])):
+                question_id = batch["question_id"][i]
+                question = batch["question"][i]
+                image_file_name = batch["image_file_name"][i]
+                model_predictions = batch_predictions[i]
+                labels = batch["answers"][i]
+                ques_to_demos_and_predictions[question_id] = {
+                    "test_question": question,
+                    "test_image_file_name": image_file_name,
+                    "predictions": model_predictions,
+                    "labels": labels,
+                    "demos": [x["image_file_name"]+ " " +
+                            eval_model.get_vqa_prompt(
+                                question=x["question"], answer=x["answers"][0]
+                            )
+                            + "\n"
+                            for x in batch_demo_samples[i]
+                    ],
+                }
+
+        for new_prediction, sample_id in zip(batch_predictions, batch["question_id"]):
             predictions.append({"answer": new_prediction, "question_id": sample_id})
         # logger.critical(f"Predictions: {predictions}")
         # assert False
@@ -1336,6 +1371,21 @@ def evaluate_vqa(
     # all gather
     all_predictions = [None for _ in range(args.world_size)]
     torch.distributed.all_gather_object(all_predictions, predictions)  # list of lists
+    if args.store_demos_and_predictions:
+        all_demos_and_predictions = [None for _ in range(args.world_size)]
+        torch.distributed.all_gather_object(
+            all_demos_and_predictions, ques_to_demos_and_predictions
+        )
+        # list of dict to a whole dict
+        ques_to_demos_and_predictions = {}
+        for item in all_demos_and_predictions:
+            ques_to_demos_and_predictions.update(item)
+        # save the demos and predictions
+        save_to = os.path.join(experiment_base_dir if experiment_base_dir is not None else '',
+                               f"{dataset_name}_demos_and_predictions_shots_{num_shots}.json")
+        with open(save_to, "w") as f:
+            f.write(json.dumps(ques_to_demos_and_predictions, indent=4))
+
 
     if args.rank != 0:
         return None
@@ -1512,12 +1562,14 @@ def evaluate_captioning(
 
     utils.random_seed(seed, args.rank)
     predictions = defaultdict()
+    if args.store_demos_and_predictions:
+        ques_to_demos_and_predictions = {}
     for batch in tqdm(
         test_dataloader,
         desc=f"Running inference {dataset_name.upper()}",
         disable=args.rank != 0,
     ):
-        batch_images, batch_text = prepare_caption_batch(
+        batch_images, batch_text, batch_demo_samples = prepare_caption_batch(
             args=args,
             rices_dataset=rices_dataset,
             batch=batch,
@@ -1543,6 +1595,18 @@ def evaluate_captioning(
             postprocess_captioning_generation(out).replace('"', "") for out in outputs
         ]
 
+        if args.store_demos_and_predictions:
+            for i in range(len(batch["image_id"])):
+                ques_to_demos_and_predictions[batch["image_id"][i]] = {
+                    "test_image_file_name": batch["image_id"][i],
+                    "predictions": new_predictions[i],
+                    "labels": batch["caption"][i],
+                    "demos": [
+                        str(x["image_id"]) + eval_model.get_caption_prompt(caption=x["caption"].strip())
+                        for x in batch_demo_samples[i]
+                    ]
+                }
+
         for i, sample_id in enumerate(batch["image_id"]):
             predictions[sample_id] = {
                 "caption": new_predictions[i],
@@ -1552,18 +1616,33 @@ def evaluate_captioning(
     all_predictions = [None for _ in range(args.world_size)]
     torch.distributed.all_gather_object(all_predictions, predictions)  # list of dicts
 
-    if args.rank != 0:
-        return None
-
-    all_predictions = {
-        k: v for d in all_predictions for k, v in d.items()
-    }  # merge dicts
+    if args.store_demos_and_predictions:
+        all_demos_and_predictions = [None for _ in range(args.world_size)]
+        torch.distributed.all_gather_object(
+            all_demos_and_predictions, ques_to_demos_and_predictions
+        )
+        # list of dict to a whole dict
+        ques_to_demos_and_predictions = {}
+        for item in all_demos_and_predictions:
+            ques_to_demos_and_predictions.update(item)
+        # save the demos and predictions
+        save_to = os.path.join(experiment_base_dir if experiment_base_dir is not None else '',
+                               f"{dataset_name}_demos_and_predictions_shots_{num_shots}.json")
+        with open(save_to, "w") as f:
+            f.write(json.dumps(ques_to_demos_and_predictions, indent=4))
 
     # save the predictions to a temporary file
     # results_path = f"{dataset_name}results_{uuid.uuid4()}_num_shots_{num_shots}.json"
     results_path = os.path.join(experiment_base_dir if experiment_base_dir is not None else '',
                                f"{dataset_name}_results_shots_{num_shots}.json")
 
+
+    if args.rank != 0:
+        return None
+
+    all_predictions = {
+        k: v for d in all_predictions for k, v in d.items()
+    }  # merge dicts
     with open(results_path, "w") as f:
         f.write(
             json.dumps(
@@ -1644,7 +1723,7 @@ def prepare_caption_batch(
 
             batch_text.append(context_text + eval_model.get_caption_prompt())
 
-        return batch_images, batch_text
+        return batch_images, batch_text, batch_demo_samples
 
     elif visual_demo_mode == "no_images":
         batch_images = []
@@ -1660,8 +1739,7 @@ def prepare_caption_batch(
             context_text = context_text.replace("<image>", "")
             batch_text.append(context_text + eval_model.get_caption_prompt())
 
-        return batch_images, batch_text
-
+        return batch_images, batch_text, batch_demo_samples
     elif visual_demo_mode == "blank_images":
         batch_images = []
         batch_text = []
@@ -1677,8 +1755,7 @@ def prepare_caption_batch(
             )
             batch_text.append(context_text + eval_model.get_caption_prompt())
 
-        return batch_images, batch_text
-
+        return batch_images, batch_text, batch_demo_samples
     elif visual_demo_mode == "ood_images":
         assert ood_images is not None
         batch_images = []
@@ -1696,8 +1773,7 @@ def prepare_caption_batch(
             )
             batch_text.append(context_text + eval_model.get_caption_prompt())
 
-        return batch_images, batch_text
-
+        return batch_images, batch_text, batch_demo_samples
 def prepare_caption_shot_results(batch, caption_shot_results):
     """
     Return prepared caption results for RICEText retrieval
@@ -1780,7 +1856,7 @@ def prepare_vqa_batch(
                 context_text + eval_model.get_vqa_prompt(question=batch["question"][i])
             )
         # logger.critical(f"Batch text: {batch_text}")
-        return batch_images, batch_text
+        return batch_images, batch_text, batch_demo_samples
     elif visual_demo_mode == "same_category":
         assert num_shots > 0
         batch_images = []
@@ -1820,7 +1896,7 @@ def prepare_vqa_batch(
                 context_text + eval_model.get_vqa_prompt(question=batch["question"][i])
             )
         # assert False
-        return batch_images, batch_text
+        return batch_images, batch_text, batch_demo_samples
     elif visual_demo_mode == "different_number_of_objects":
         assert args.number_of_objects_in_demos is not None, (
             "Please specify the number of objects in demos "
@@ -1879,7 +1955,7 @@ def prepare_vqa_batch(
             batch_text.append(
                 context_text + eval_model.get_vqa_prompt(question=batch["question"][i])
             )
-        return batch_images, batch_text
+        return batch_images, batch_text, batch_demo_samples
     elif visual_demo_mode == "no_images":
         batch_images, batch_text = [], []
         for i in range(len(batch["image"])):
@@ -1901,7 +1977,7 @@ def prepare_vqa_batch(
         # logger.critical(f"batch_text: {batch_text}"
         #                 f"batch_images: {batch_images}")
         # assert False
-        return batch_images, batch_text
+        return batch_images, batch_text, batch_demo_samples
     elif visual_demo_mode == "blank_images":
         batch_images, batch_text = [], []
         for i in range(len(batch["image"])):
@@ -1929,7 +2005,7 @@ def prepare_vqa_batch(
                 context_text + eval_model.get_vqa_prompt(question=batch["question"][i])
             )
         # logger.critical(f"Batch text: {batch_text}")
-        return batch_images, batch_text
+        return batch_images, batch_text, batch_demo_samples
     elif visual_demo_mode == "ood_images":
         batch_images, batch_text = [], []
         for i in range(len(batch["image"])):
@@ -1958,7 +2034,7 @@ def prepare_vqa_batch(
                 context_text + eval_model.get_vqa_prompt(question=batch["question"][i])
             )
         # logger.critical(f"Batch text: {batch_text}")
-        return batch_images, batch_text
+        return batch_images, batch_text, batch_demo_samples
 
 
     else:
