@@ -29,7 +29,9 @@ def compute_gqa_accuracy(result_file, annotation_file):
     annotations = json.load(open(annotation_file, "r"))
     predict_que2ans = {}
     for result in results:
-        predict_que2ans[result["question_id"]] = result["answer"]
+        ans = result["answer"]
+        ans = ans.replace("\n","")
+        predict_que2ans[result["question_id"]] = ans
     gt_que2ans = {}
     for annotation in annotations["annotations"]:
         ques_id = annotation["question_id"]
@@ -581,4 +583,6 @@ def compute_vqa_accuracy(result_json_path, question_json_path, annotation_json_p
 def postprocess_vqa_generation(predictions):
     answer = re.split("Question|Answer|Short", predictions, 1)[0]
     answer = re.split(", ", answer, 1)[0]
+    # answer = answer.replace("\n", "")
+    # answer = answer.lower()
     return answer
