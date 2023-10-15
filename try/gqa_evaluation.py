@@ -21,11 +21,13 @@ logger = logging.getLogger(__name__)
 #
 
 
-result_file = "results/gqaresults_16255349-7bf5-48f5-9748-5e457deb5b79_shots_32.json"
+# result_file = "results/gqaresults_16255349-7bf5-48f5-9748-5e457deb5b79_shots_32.json"
+# result_file = "/dss/dssmcmlfs01/pn34sa/pn34sa-dss-0000/robustness/in-context-open-flamingo/open_flamingo_2-0/.experimental_results/OF9B/rices_text/demo_mode_gold/visual_demo_mode_random/gqa/shot_16/2023-09-19_17-46-54/gqa_results_shots_16.json"
+result_file = "/dss/dssmcmlfs01/pn34sa/pn34sa-dss-0000/robustness/in-context-open-flamingo/open_flamingo_2-0/.experimental_results/OF9B/rices/demo_mode_gold/visual_demo_mode_random/gqa/shot_16/2023-09-16_09-50-34/gqa_results_shots_16.json"
 test_questions_json_path = "/dss/dssmcmlfs01/pn34sa/pn34sa-dss-0000/robustness/datasets/gqa/test_ques_vqav2_format.json"
 test_annotations_json_path = "/dss/dssmcmlfs01/pn34sa/pn34sa-dss-0000/robustness/datasets/gqa/test_anno_vqav2_format.json"
 acc = compute_gqa_accuracy(
             result_file,
-    test_annotations_json_path,
+            test_annotations_json_path,
 )
 print(f"Accuracy: {acc}")

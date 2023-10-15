@@ -10,44 +10,44 @@ model, image_processor, tokenizer = load_model("9BI", device=device)
 
 demos = {
     "http://images.cocodataset.org/train2014/COCO_train2014_000000458752.jpg":{
-        "Question": "What is this photo taken looking through?",
+        "Question": "What is this photo taken looking through? The answer should be precise and short.",
         "Short answer": "net"
         # "Short answer": "down"
     },
     "http://images.cocodataset.org/train2014/COCO_train2014_000000262146.jpg":{
-        "Question": "What color is the snow?",
+        "Question": "What color is the snow? The answer should be precise and short.",
         "Short answer": "white"
         # "Short answer": "up"
     },
     "http://images.cocodataset.org/train2014/COCO_train2014_000000524291.jpg":{
-        "Question": "Is the sky blur?",
+        "Question": "Is the sky blur? The answer should be precise and short.",
         "Short answer": "yes"
         # "Short answer": "left"
     },
     "http://images.cocodataset.org/train2014/COCO_train2014_000000393221.jpg":{
-        "Question": "Is the window open?",
+        "Question": "Is the window open? The answer should be precise and short.",
         "Short answer": "yes"
         # "Short answer": "right"
     },
     "http://images.cocodataset.org/train2014/COCO_train2014_000000393223.jpg":{
-        "Question": "What color is the toothbrush?",
+        "Question": "What color is the toothbrush? The answer should be precise and short.",
         "Short answer": "white and purple"
         # "Short answer": "abcde"
     },
     "http://images.cocodataset.org/train2014/COCO_train2014_000000393224.jpg":{
-        "Question": "Is the man smiling?",
+        "Question": "Is the man smiling? The answer should be precise and short.",
         "Short answer": "no"
         # "Short answer": "abcde"
     },
 
     "http://images.cocodataset.org/train2014/COCO_train2014_000000524297.jpg":{
-        "Question": "Judging from  the dress, was this taken in a Latin American country?",
+        "Question": "Judging from  the dress, was this taken in a Latin American country? The answer should be precise and short.",
         "Short answer": "yes"
         # "Short answer": "abcde"
 
     },
     "http://images.cocodataset.org/train2014/COCO_train2014_000000393227.jpg":{
-        "Question": "Does the guy have a tattoo?",
+        "Question": "Does the guy have a tattoo? The answer should be precise and short.",
         "Short answer": "yes"
         # "Short answer": "abcde"
     },

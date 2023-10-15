@@ -169,5 +169,5 @@ if __name__ == "__main__":
     # save_ques_to_ans_and_ques_type_to_ans()
     # save_image_to_ques_and_ans(split="val")
 
-    # check_image_to_ques_and_ans()
-    check_ques_to_ans_and_ques_type_to_ans()
+    check_image_to_ques_and_ans()
+    # check_ques_to_ans_and_ques_type_to_ans()

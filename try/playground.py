@@ -99,12 +99,32 @@ def prepare_vision_x(demo_image_urls, query_image_url, image_processor, device):
     return vision_x
 
 
-def prepare_lang_x(demo_texts, query_text, tokenizer, device):
-    demo = [f"<image>{text}<|endofchunk|>" for text in demo_texts]
-    demo = "".join(demo)
-    query = f"<image>{query_text}"
-    demo += query
-    print(f"demo = {demo}")
+def prepare_lang_x(demo_texts, query_text, tokenizer, device, visual_mode="gold"):
+    if visual_mode == "gold":
+        demo = []
+        for text in demo_texts:
+            if "<image>" not in text:
+                text = f"<image>{text}"
+            if "<|endofchunk|>" not in text:
+                text = f"{text}<|endofchunk|>"
+            demo.append(text)
+        # demo = [f"<image>{text}<|endofchunk|>" if "<endofchunk>" not in text else text for text in demo_texts]
+        demo = "".join(demo)
+        query = f"<image>{query_text}" if "<image>" not in query_text else query_text
+        demo += query
+        print(f"demo = {demo}")
+    elif visual_mode == "no_images":
+        demo = []
+        for text in demo_texts:
+            if "<image>" in text:
+                text = re.sub("<image>", "", text)
+            if "<|endofchunk|>" not in text:
+                text = f"{text}<|endofchunk|>"
+            demo.append(text)
+        demo = "".join(demo)
+        query = f"<image>{query_text}" if "<image>" not in query_text else query_text
+        demo += query
+        print(f"demo = {demo}")
     encodings = tokenizer(
         #["<image>An image of two dogs.<|endofchunk|><image>An image of a basketball.<|endofchunk|><image>An image of"],
         [demo],
