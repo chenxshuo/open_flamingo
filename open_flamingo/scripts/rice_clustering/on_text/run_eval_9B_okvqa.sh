@@ -38,8 +38,9 @@ torchrun --nnodes=1 --nproc_per_node="$NUM_GPUs" --master_port=${MASTER_PORT} op
     --shots ${SHOTS} \
     --trial_seeds 42 \
     --demo_mode  "gold" \
-    --visual_demo_mode "random" \
-    --rices \
+    --visual_demo_mode "no_images" \
+    --rices_clustering \
+    --rices_clustering_on "text" \
     --cached_demonstration_features ${OUT_DIR} \
     --vision_encoder_path ViT-L-14 \
     --vision_encoder_pretrained openai \

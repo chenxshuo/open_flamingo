@@ -15,7 +15,6 @@
 #bash open_flamingo/scripts/rice_img/run_eval_9B_hatefulmemes.sh 16 26000 8 &> ./logs/rice_img/out-rice-img-9B-hatefulmemes-shot-16.text
 #bash open_flamingo/scripts/rice_img/run_eval_9B_hatefulmemes.sh 32 26000 8 &> ./logs/rice_img/out-rice-img-9B-hatefulmemes-shot-32.text
 
-#bash open_flamingo/scripts/rice_img/run_eval_9B_okvqa.sh 4 26000 32 &> ./logs/rice_img/out-rice-img-9B-okvqa-shot-4.text
 #bash open_flamingo/scripts/rice_img/run_eval_9B_okvqa.sh 8 26000 16 &> ./logs/rice_img/out-rice-img-9B-okvqa-shot-8.text
 #bash open_flamingo/scripts/rice_img/run_eval_9B_okvqa.sh 16 26000 8 &> ./logs/rice_img/out-rice-img-9B-okvqa-shot-16.text
 #bash open_flamingo/scripts/rice_img/run_eval_9B_okvqa.sh 32 26000 8 &> ./logs/rice_img/out-rice-img-9B-okvqa-shot-32.text
@@ -25,10 +24,10 @@
 #bash open_flamingo/scripts/rice_img/run_eval_9B_textvqa.sh 16 26000 8 &> ./logs/rice_img/out-rice-img-9B-textvqa-shot-16.text
 #bash open_flamingo/scripts/rice_img/run_eval_9B_textvqa.sh 32 26000 8 &> ./logs/rice_img/out-rice-img-9B-textvqa-shot-32.text
 #
-#bash open_flamingo/scripts/rice_img/run_eval_9B_vizwiz.sh 4 26000 32 &> ./logs/rice_img/out-rice-img-9B-vizwiz-shot-4.text
-#bash open_flamingo/scripts/rice_img/run_eval_9B_vizwiz.sh 8 26000 16 &> ./logs/rice_img/out-rice-img-9B-vizwiz-shot-8.text
-#bash open_flamingo/scripts/rice_img/run_eval_9B_vizwiz.sh 16 26000 8 &> ./logs/rice_img/out-rice-img-9B-vizwiz-shot-16.text
-#bash open_flamingo/scripts/rice_img/run_eval_9B_vizwiz.sh 32 26000 8 &> ./logs/rice_img/out-rice-img-9B-vizwiz-shot-32.text
+bash open_flamingo/scripts/rice_img/run_eval_9B_vizwiz.sh 4 26000 32 &> ./logs/rice_img/out-rice-img-9B-vizwiz-shot-4.text
+bash open_flamingo/scripts/rice_img/run_eval_9B_vizwiz.sh 8 26000 16 &> ./logs/rice_img/out-rice-img-9B-vizwiz-shot-8.text
+bash open_flamingo/scripts/rice_img/run_eval_9B_vizwiz.sh 16 26000 8 &> ./logs/rice_img/out-rice-img-9B-vizwiz-shot-16.text
+bash open_flamingo/scripts/rice_img/run_eval_9B_vizwiz.sh 32 26000 8 &> ./logs/rice_img/out-rice-img-9B-vizwiz-shot-32.text
 #
 #bash open_flamingo/scripts/rice_img/run_eval_9B_vqav2.sh 4 26000 32 &> ./logs/rice_img/out-rice-img-9B-vqav2-shot-4.text
 #bash open_flamingo/scripts/rice_img/run_eval_9B_vqav2.sh 8 26000 16 &> ./logs/rice_img/out-rice-img-9B-vqav2-shot-8.text

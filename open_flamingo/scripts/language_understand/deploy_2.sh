@@ -7,6 +7,8 @@ bash open_flamingo/scripts/language_understand/run_eval_9B_vqav2.sh random_outer
 bash open_flamingo/scripts/language_understand/run_eval_9B_vqav2.sh random_label_for_same_question_type_as_labels 26003 4 64 &> ./logs/eval_vqav2_language_random_label_for_same_question_type_as_labels_shot4.log
 bash open_flamingo/scripts/language_understand/run_eval_9B_vqav2.sh random_label_for_same_question_as_labels 26004 4 64 &> ./logs/eval_vqav2_language_random_label_for_same_question_as_labels_shot4.log
 
+bash open_flamingo/scripts/language_understand/run_eval_9B_vqav2.sh random_question_label_demo 26000 16 4
+
 #bash open_flamingo/scripts/language_understand/run_eval_9B_vqav2.sh random_strings_as_labels 26000 8 64 &> ./logs/eval_vqav2_language_random_strings_as_labels_shot8.log
 #bash open_flamingo/scripts/language_understand/run_eval_9B_vqav2.sh random_words_as_labels 26001 8 64 &> ./logs/eval_vqav2_language_random_words_as_labels_shot8.log
 #bash open_flamingo/scripts/language_understand/run_eval_9B_vqav2.sh random_outer_label_as_labels 26002 8 64 &> ./logs/eval_vqav2_language_random_outer_label_as_labels_shot8.log

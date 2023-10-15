@@ -11,7 +11,7 @@
 #bash open_flamingo/scripts/reproduction/run_eval_9B_okvqa.sh 0 26000 64 &> out-reproduce-9B-okvqa-shot-0.text
 #bash open_flamingo/scripts/reproduction/run_eval_9B_okvqa.sh 4 26001 64 &> out-reproduce-9B-okvqa-shot-4.text
 #bash open_flamingo/scripts/reproduction/run_eval_9B_okvqa.sh 8 26002 64 &> out-reproduce-9B-okvqa-shot-8.text
-#bash open_flamingo/scripts/reproduction/run_eval_9B_okvqa.sh 16 26003 32 &> out-reproduce-9B-okvqa-shot-16.text
+bash open_flamingo/scripts/reproduction/run_eval_9B_okvqa.sh 16 26003 32 &> out-reproduce-9B-okvqa-shot-16.text
 #bash open_flamingo/scripts/reproduction/run_eval_9B_okvqa.sh 32 26003 32 &> out-reproduce-9B-okvqa-shot-32.text
 #
 #
