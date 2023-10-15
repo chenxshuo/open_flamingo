@@ -583,6 +583,6 @@ def compute_vqa_accuracy(result_json_path, question_json_path, annotation_json_p
 def postprocess_vqa_generation(predictions):
     answer = re.split("Question|Answer|Short", predictions, 1)[0]
     answer = re.split(", ", answer, 1)[0]
-    # answer = answer.replace("\n", "")
-    # answer = answer.lower()
+    answer = answer.replace("\n", "")
+    answer = answer.lower()
     return answer
