@@ -24,7 +24,7 @@ import math
 from coco_metric import compute_cider, postprocess_captioning_generation
 from eval_datasets import (
     CaptionDataset,
-    CaptionDatasetTR,
+    CaptionDatasetDoffDemoForm,
     VQADatasetDiffDemoForm,
     VQADataset,
     ImageNetDataset,
@@ -33,6 +33,7 @@ from eval_datasets import (
 )
 from rices import RICES
 from rices_text import RICESText
+from rices_cluster import RICESCluster
 from tqdm import tqdm
 
 
@@ -64,7 +65,9 @@ parser = argparse.ArgumentParser()
 
 parser.add_argument(
     "--store_demos_and_predictions",
-    action="store_true",
+    # action="store_true",
+    type=bool,
+    default=True,
     help="Whether to store demonstrations and predictions",
 )
 
@@ -88,6 +91,7 @@ parser.add_argument(
              "random_strings_inputs",
              "random_question_inputs",
              "fixed_pseudo_question_length",
+             "random_question_label_demo",
            ]
 )
 
@@ -184,6 +188,31 @@ parser.add_argument(
     action="store_true",
     help="Whether to use RICES for evaluation. If False, uses random demonstrations.",
 )
+parser.add_argument(
+    "--rices_every_nth",
+    action="store_true",
+    help="Whether to use RICES every_nth for evaluation. If False, uses random demonstrations.",
+)
+parser.add_argument(
+    "--rices_find_by_ranking_similar_text",
+    action="store_true",
+    help="Whether to use RICES then rank by text similarity.",
+)
+
+
+parser.add_argument(
+    "--rices_clustering",
+    action="store_true",
+    help="Whether to use RICESClustering for evaluation.",
+)
+parser.add_argument(
+    "--rices_clustering_on",
+    default="images",
+    type=str,
+    choices=["images", "text"],
+    help="Whether to use text or image to do RICESClustering.",
+)
+
 parser.add_argument(
     "--rices_vision_encoder_path",
     default="ViT-L-14",
@@ -576,10 +605,21 @@ def main():
 
         # load cached demonstration features for RICES
         if args.cached_demonstration_features is not None:
-            if args.rices:
+            if args.rices or args.rices_clustering:
                 cached_features = torch.load(
                     f"{args.cached_demonstration_features}/flickr30.pkl", map_location="cpu"
                 )
+                if args.rices_find_by_ranking_similar_text:
+                    assert args.caption_shot_results is not None
+                    caption_shot_raw_results = json.load(open(args.caption_shot_results, "r"))
+                    caption_shot_results = {}
+                    for dict_item in caption_shot_raw_results:
+                        caption_shot_results.update({
+                            int(dict_item["image_id"]): dict_item["caption"]
+                        })
+                else:
+                    caption_shot_results = None
+
             elif args.rices_text:
                 cached_features = torch.load(
                     f"{args.cached_demonstration_features}/flickr30_ricestext.pkl", map_location="cpu"
@@ -639,11 +679,21 @@ def main():
         logging.info("Evaluating on COCO...")
         # load cached demonstration features for RICES
         if args.cached_demonstration_features is not None:
-            if args.rices:
+            if args.rices or args.rices_clustering:
                 cached_features = torch.load(
                     f"{args.cached_demonstration_features}/coco.pkl", map_location="cpu"
                 )
-                caption_shot_results = None
+                if args.rices_find_by_ranking_similar_text:
+                    assert args.caption_shot_results is not None
+                    caption_shot_raw_results = json.load(open(args.caption_shot_results, "r"))
+                    caption_shot_results = {}
+                    for dict_item in caption_shot_raw_results:
+                        caption_shot_results.update({
+                            int(dict_item["image_id"]): dict_item["caption"]
+                        })
+                else:
+                    caption_shot_results = None
+
             elif args.rices_text:
                 cached_features = torch.load(
                     f"{args.cached_demonstration_features}/coco_ricestext.pkl", map_location="cpu"
@@ -702,7 +752,7 @@ def main():
     if args.eval_gqa:
         logger.info("Evaluating on GQA...")
         if args.cached_demonstration_features is not None:
-            if args.rices:
+            if args.rices or args.rices_clustering:
                 cached_features = torch.load(
                     f"{args.cached_demonstration_features}/gqa.pkl", map_location="cpu"
                 )
@@ -756,7 +806,7 @@ def main():
 
         # load cached demonstration features for RICES
         if args.cached_demonstration_features is not None:
-            if args.rices:
+            if args.rices or args.rices_clustering:
                 cached_features = torch.load(
                     f"{args.cached_demonstration_features}/ok_vqa.pkl", map_location="cpu"
                 )
@@ -810,7 +860,7 @@ def main():
         logger.info(f"Visual Demonstration Mode: {args.visual_demo_mode}")
         # load cached demonstration features for RICES
         if args.cached_demonstration_features is not None:
-            if args.rices:
+            if args.rices or args.rices_clustering:
                 cached_features = torch.load(
                     f"{args.cached_demonstration_features}/vqav2.pkl", map_location="cpu"
                 )
@@ -865,7 +915,7 @@ def main():
 
         # load cached demonstration features for RICES
         if args.cached_demonstration_features is not None:
-            if args.rices:
+            if args.rices or args.rices_clustering:
                 cached_features = torch.load(
                     f"{args.cached_demonstration_features}/vizwiz.pkl", map_location="cpu"
                 )
@@ -918,7 +968,7 @@ def main():
 
         # load cached demonstration features for RICES
         if args.cached_demonstration_features is not None:
-            if args.rices:
+            if args.rices or args.rices_clustering:
                 cached_features = torch.load(
                     f"{args.cached_demonstration_features}/textvqa.pkl", map_location="cpu"
                 )
@@ -972,7 +1022,7 @@ def main():
 
         # load cached demonstration features for RICES
         if args.cached_demonstration_features is not None:
-            if args.rices:
+            if args.rices or args.rices_clustering:
                 cached_features = torch.load(
                     f"{args.cached_demonstration_features}/imagenet.pkl", map_location="cpu"
                 )
@@ -1029,7 +1079,7 @@ def main():
         logging.info("Evaluating on Hateful Memes...")
         # load cached demonstration features for RICES
         if args.cached_demonstration_features is not None:
-            if args.rices:
+            if args.rices or args.rices_clustering:
                 cached_features = torch.load(
                     f"{args.cached_demonstration_features}/hateful_memes.pkl",
                     map_location="cpu",
@@ -1275,6 +1325,18 @@ def evaluate_vqa(
             vision_encoder_pretrained=args.rices_vision_encoder_pretrained,
         )
         query_set = None
+    elif args.rices_clustering:
+        rices_dataset = RICESCluster(
+            train_dataset=train_dataset,
+            test_dataset=test_dataset,
+            dataset_name=dataset_name,
+            device=eval_model.device,
+            batch_size=32,
+            cached_features=cached_features,
+            cached_demo_mapping=None,
+            cluster_on=args.rices_clustering_on,
+        )
+        query_set = None
     elif args.rices_text:
         rices_dataset = RICESText(
             train_dataset,
@@ -1508,7 +1570,15 @@ def evaluate_captioning(
     )
     logger.info(f"demo_mode={demo_mode}, visual_demo_mode={visual_demo_mode}")
     if demo_mode != "gold":
-        raise NotImplementedError("Only gold demo mode is supported for captioning.")
+        train_dataset = CaptionDatasetDoffDemoForm(
+            seed=seed,
+            mode=demo_mode,
+            image_train_dir_path=image_train_dir_path,
+            image_val_dir_path=image_val_dir_path,
+            annotations_path=annotations_path,
+            is_train=True,
+            dataset_name=dataset_name if dataset_name != "nocaps" else "coco"
+        )
     else:
         train_dataset = CaptionDataset(
             image_train_dir_path=image_train_dir_path,
@@ -1683,7 +1753,23 @@ def prepare_caption_batch(
         f"Unsupported visual demo mode: {visual_demo_mode}"
     )
     if args.rices:
-        batch_demo_samples = rices_dataset.find(batch["image"], effective_num_shots)
+        if args.rices_every_nth:
+            batch_demo_samples = rices_dataset.find_every_nth(batch["image"], effective_num_shots, n=16)
+        elif args.rices_find_by_ranking_similar_text:
+            shot_results = prepare_caption_shot_results(batch, caption_shot_results)
+            batch_demo_samples = rices_dataset.find_by_ranking_similar_text(batch_image=batch["image"],
+                                                                            batch_text=shot_results,
+                                                                            num_examples=effective_num_shots
+                                                                            )
+            # for i in range(len(batch["image"])):
+            #     for sample in batch_demo_samples[i]:
+            #         logger.critical(f"batch[i]: {batch['image_id'][i]} caption {batch['caption'][i]};"
+            #                         f" batch_demo_samples from RICEs: {sample}\n")
+            #     logger.critical("====================================\n")
+            # logger.critical("******************************************\n")
+            # assert False
+        else:
+            batch_demo_samples = rices_dataset.find(batch["image"], effective_num_shots)
     elif args.rices_text:
         shot_results = prepare_caption_shot_results(batch, caption_shot_results)
         batch_demo_samples = rices_dataset.find(shot_results, effective_num_shots)
@@ -1694,7 +1780,6 @@ def prepare_caption_batch(
         #     logger.critical("====================================\n")
         # logger.critical("******************************************\n")
         # assert False
-
     else:
         batch_demo_samples = utils.sample_batch_demos_from_query_set(
             query_set, effective_num_shots, len(batch["image"])
@@ -1810,25 +1895,52 @@ def prepare_vqa_batch(
         f"Unsupported visual demo mode: {visual_demo_mode}"
     )
     if args.rices:
-        batch_demo_samples = rices_dataset.find(batch["image"], effective_num_shots)
+        if args.rices_every_nth:
+            batch_demo_samples = rices_dataset.find_every_nth(batch["image"], effective_num_shots, n=4)
+            # assert False
+        elif args.rices_find_by_ranking_similar_text:
+            batch_demo_samples = rices_dataset.find_by_ranking_similar_text(batch_image=batch["image"], batch_text=batch["question"],
+                                                       num_examples=effective_num_shots)
+        else:
+            batch_demo_samples = rices_dataset.find(batch["image"], effective_num_shots)
         # for i in range(len(batch["image"])):
         #     for sample in batch_demo_samples[i]:
         #         logger.critical(f"batch[i]: {batch['image_file_name'][i]} question {batch['question'][i]} answers {batch['answers'][i]};"
         #                         f" batch_demo_samples from RICEs: {sample}\n")
         #     logger.critical("====================================\n")
         # logger.critical("******************************************\n")
+    elif args.rices_clustering:
+        if args.rices_clustering_on == "images":
+            batch_demo_samples = rices_dataset.find_by_clustering_images(batch["image"], effective_num_shots)
+            for i in range(len(batch["image"])):
+                for sample in batch_demo_samples[i]:
+                    logger.critical(f"batch[i]: {batch['image_file_name'][i]} question {batch['question'][i]} answers {batch['answers'][i]};"
+                                    f" batch_demo_samples from RICESClustering: {sample}\n")
+                logger.critical("====================================\n")
+            logger.critical("******************************************\n")
+            assert False
+        elif args.rices_clustering_on == "text":
+            batch_demo_samples = rices_dataset.find_by_clustering_text(batch["image"], effective_num_shots)
+            # for i in range(len(batch["image"])):
+            #     for sample in batch_demo_samples[i]:
+            #         logger.critical(
+            #             f"batch[i]: {batch['image_file_name'][i]} question {batch['question'][i]} answers {batch['answers'][i]};"
+            #             f" batch_demo_samples from RICESClustering: {sample}\n")
+            #     logger.critical("====================================\n")
+            # logger.critical("******************************************\n")
+            # assert False
+        else:
+            assert NotImplementedError
     elif args.rices_text:
         batch_demo_samples = rices_dataset.find(batch["question"], effective_num_shots)
-        # for i in range(len(batch["image"])):
-        #     for sample in batch_demo_samples[i]:
-        #         logger.critical(f"batch[i]: {batch['image_file_name'][i]} question {batch['question'][i]} answers {batch['answers'][i]};"
-        #                         f" batch_demo_samples from RICEs: {sample}\n")
-        #     logger.critical("====================================\n")
-        # logger.critical("******************************************\n")
     else:
         batch_demo_samples = utils.sample_batch_demos_from_query_set(
             query_set, effective_num_shots, len(batch["image"])
         )
+
+    assert batch_demo_samples is not None, (
+        f"batch_demo_samples is None"
+    )
     if visual_demo_mode == "random":
         batch_images, batch_text = [], []
         for i in range(len(batch["image"])):
@@ -2035,8 +2147,6 @@ def prepare_vqa_batch(
             )
         # logger.critical(f"Batch text: {batch_text}")
         return batch_images, batch_text, batch_demo_samples
-
-
     else:
         raise ValueError(f"Unknown visual demo mode: {visual_demo_mode}")
 
