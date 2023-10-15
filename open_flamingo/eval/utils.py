@@ -68,6 +68,28 @@ def create_experiment_dir(args, model_args):
             f"shot_{shot}",
             f"{experiment_time}",
         )
+        if args.rices_every_nth:
+            experiment_base_dir = os.path.join(
+                BASE_PATH,
+                f"{model}",
+                f"rices_every_nth",
+                f"demo_mode_{demo_mode}",
+                f"visual_demo_mode_{visual_demo_mode}",
+                f"{evaluate_tasks}",
+                f"shot_{shot}",
+                f"{experiment_time}",
+            )
+        if args.rices_find_by_ranking_similar_text:
+            experiment_base_dir = os.path.join(
+                BASE_PATH,
+                f"{model}",
+                f"rices_find_by_ranking_similar_text",
+                f"demo_mode_{demo_mode}",
+                f"visual_demo_mode_{visual_demo_mode}",
+                f"{evaluate_tasks}",
+                f"shot_{shot}",
+                f"{experiment_time}",
+            )
     elif args.rices_text:
         experiment_base_dir = os.path.join(
             BASE_PATH,
