@@ -6,12 +6,15 @@ from torch.distributed.fsdp.wrap import (
     enable_wrap,
     wrap,
 )
+import logging
 from transformers.modeling_outputs import CausalLMOutputWithPast
 from torch.distributed.fsdp import (
     FullyShardedDataParallel as FSDP,
 )
 
 from .utils import apply_with_stopping_condition
+
+logger = logging.getLogger(__name__)
 
 
 class Flamingo(nn.Module):
@@ -162,6 +165,8 @@ class Flamingo(nn.Module):
         self._encode_vision_x(vision_x=vision_x)
 
         eos_token_id = kwargs.pop("eos_token_id", self.eoc_token_id)
+        # open_flamingo.src.utils. GPTNeoXForCausalLM
+        # logger.debug(f"self.lang_encoder type: {type(self.lang_encoder)} class {self.lang_encoder.__class__}")
         output = self.lang_encoder.generate(
             input_ids=lang_x,
             attention_mask=attention_mask,
@@ -189,12 +194,17 @@ class Flamingo(nn.Module):
         assert vision_x.ndim == 6, "vision_x should be of shape (b, T_img, F, C, H, W)"
         b, T, F = vision_x.shape[:3]
         assert F == 1, "Only single frame supported"
-
+        logger.debug(f"in _encode_vision_x function")
+        logger.debug(f"before rearrange vision_x shape is {vision_x.shape}")
         vision_x = rearrange(vision_x, "b T F c h w -> (b T F) c h w")
-        with torch.no_grad():
+        logger.debug(f"after rearrange vision_x shape is {vision_x.shape}")
+        with torch.no_grad(): # that is why I did not get gradients in the vision encoder
             vision_x = self.vision_encoder(vision_x)[1]
+        logger.debug(f"after vision encoder vision_x shape is {vision_x.shape}")
         vision_x = rearrange(vision_x, "(b T F) v d -> b T F v d", b=b, T=T, F=F)
+        logger.debug(f"after rearrange vision_x shape is {vision_x.shape}")
         vision_x = self.perceiver(vision_x)
+        logger.debug(f"after perceiver vision_x shape is {vision_x.shape}")
 
         for layer in self.lang_encoder._get_decoder_layers():
             layer.condition_vis_x(vision_x)

@@ -2,6 +2,9 @@ import torch.nn as nn
 from .helpers import GatedCrossAttentionBlock
 from .utils import getattr_recursive, setattr_recursive
 
+import logging
+
+logger = logging.getLogger(__name__)
 
 class FlamingoLayer(nn.Module):
     """
@@ -124,6 +127,9 @@ class FlamingoLMMixin(nn.Module):
                 ]
             )
         )
+        # for i, decoder_layer in enumerate(self._get_decoder_layers()):
+        #     logger.info(f"Initializing Flamingo {i}th layer {decoder_layer}")
+
 
     def forward(self, input_ids, attention_mask, **kwargs):
         """Condition the Flamingo layers on the media locations before forward()"""

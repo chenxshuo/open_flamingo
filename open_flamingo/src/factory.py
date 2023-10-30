@@ -6,7 +6,10 @@ import open_clip
 from .flamingo import Flamingo
 from .flamingo_lm import FlamingoLMMixin
 from .utils import extend_instance
+import logging
+import inspect
 
+logger = logging.getLogger(__name__)
 
 def create_model_and_transforms(
     clip_vision_encoder_path: str,
@@ -68,6 +71,8 @@ def create_model_and_transforms(
         trust_remote_code=True,
         cache_dir=cache_dir,
     )
+    # logger.info(f"lang_encoder source code file: {inspect.getsource(lang_encoder.__class__)}")
+    # logger.info(f"lang_encoder source code file: {inspect.getsourcefile(lang_encoder.__class__)}")
 
     # hacks for MPT-1B, which doesn't have a get_input_embeddings method
     if "mpt-1b-redpajama-200b" in lang_encoder_path:
