@@ -29,9 +29,17 @@ def create_experiment_dir(args, model_args):
     if "9B" in model_args["checkpoint_path"]:
         model = "OF9B"
     elif "3B" in model_args["checkpoint_path"]:
-        model = "OF3B"
+        if "instruct" in model_args["checkpoint_path"]:
+            model = "OF3BI"
+        else:
+            model = "OF3B"
+    elif "4B" in model_args["checkpoint_path"]:
+        if "instruct" in model_args["checkpoint_path"]:
+            model = "OF4BI"
+        else:
+            model = "OF4B"
     else:
-        raise NotImplementedError("Only OF9B, OF3B is supported for now.")
+        raise NotImplementedError("Only OF9B, OF4B, OF4BI, OF3B, OF3BI are supported for now.")
     demo_mode = args.demo_mode
     visual_demo_mode = args.visual_demo_mode
     shot = args.shots
@@ -90,6 +98,18 @@ def create_experiment_dir(args, model_args):
                 f"shot_{shot}",
                 f"{experiment_time}",
             )
+            if args.rices_similar_with_labels:
+                experiment_base_dir = os.path.join(
+                    BASE_PATH,
+                    f"{model}",
+                    f"rices_find_by_ranking_similar_text",
+                    f"rices_similar_with_labels",
+                    f"demo_mode_{demo_mode}",
+                    f"visual_demo_mode_{visual_demo_mode}",
+                    f"{evaluate_tasks}",
+                    f"shot_{shot}",
+                    f"{experiment_time}",
+                )
     elif args.rices_text:
         experiment_base_dir = os.path.join(
             BASE_PATH,
