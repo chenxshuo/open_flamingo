@@ -13,6 +13,7 @@ VQAV2_IMG_TEST_PATH="${BASE_DATA_PATH}/val2014"
 VQAV2_ANNO_TEST_PATH="${BASE_DATA_PATH}/v2_mscoco_val2014_annotations.json"
 VQAV2_QUESTION_TEST_PATH="${BASE_DATA_PATH}/v2_OpenEnded_mscoco_val2014_questions.json"
 
+#3BI
 CKPT_PATH="/dss/dssmcmlfs01/pn34sa/pn34sa-dss-0000/.cache/huggingface/hub/models--openflamingo--OpenFlamingo-3B-vitl-mpt1b-langinstruct/snapshots/656bbbcd4508db84ccc83c02361011c6fe92ae93/checkpoint.pt"
 LM_MODEL="anas-awadalla/mpt-1b-redpajama-200b-dolly"
 CROSS_ATTN_EVERY_N_LAYERS=1

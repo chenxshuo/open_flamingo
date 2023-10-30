@@ -18,7 +18,7 @@ VQAV2_QUESTION_TEST_PATH="${BASE_DATA_PATH}/v2_OpenEnded_mscoco_val2014_question
 #CKPT_PATH="/dss/dssmcmlfs01/pn34sa/pn34sa-dss-0000/.cache/huggingface/hub/models--openflamingo--OpenFlamingo-9B-vitl-mpt7b/snapshots/e6e175603712c7007fe3b9c0d50bdcfbd83adfc2/checkpoint.pt"
 #LM_MODEL="anas-awadalla/mpt-7b"
 #CROSS_ATTN_EVERY_N_LAYERS=4
-# 4B
+# 4BI
 CKPT_PATH="/dss/dssmcmlfs01/pn34sa/pn34sa-dss-0000/.cache/huggingface/hub/models--openflamingo--OpenFlamingo-4B-vitl-rpj3b-langinstruct/snapshots/ef1d867b2bdf3e0ffec6d9870a07e6bd51eb7e88/checkpoint.pt"
 LM_MODEL="togethercomputer/RedPajama-INCITE-Instruct-3B-v1"
 CROSS_ATTN_EVERY_N_LAYERS=2

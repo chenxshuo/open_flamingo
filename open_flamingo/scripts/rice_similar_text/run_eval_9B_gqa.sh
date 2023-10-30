@@ -16,6 +16,8 @@ CROSS_ATTN_EVERY_N_LAYERS=4
 SHOTS=$1
 MASTER_PORT=$2
 BS=$3
+#VISUAL_MODE="no_images"
+VISUAL_MODE="random"
 
 export CUDA_VISIBLE_DEVICES=0,1,2,3
 NUM_GPUs=`echo $CUDA_VISIBLE_DEVICES | grep -P -o '\d' | wc -l`
@@ -36,7 +38,7 @@ torchrun --nnodes=1 --nproc_per_node="$NUM_GPUs" --master_port=${MASTER_PORT} op
     --shots ${SHOTS} \
     --trial_seeds 42 \
     --demo_mode  "gold" \
-    --visual_demo_mode "no_images" \
+    --visual_demo_mode $VISUAL_MODE \
     --rices \
     --rices_find_by_ranking_similar_text \
     --cached_demonstration_features ${OUT_DIR} \
