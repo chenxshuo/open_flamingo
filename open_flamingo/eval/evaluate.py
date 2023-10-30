@@ -198,7 +198,17 @@ parser.add_argument(
     action="store_true",
     help="Whether to use RICES then rank by text similarity.",
 )
-
+parser.add_argument(
+    "--rices_similar_with_labels",
+    action="store_true",
+    help="Whether to use RICES then rank by text similarity with VQA labels.",
+)
+parser.add_argument(
+    "--rices_find_by_ranking_similar_text_similar_in_top_k",
+    type=int,
+    default=200,
+    help="Use RICES to select top-k then rank by text similarity.",
+)
 
 parser.add_argument(
     "--rices_clustering",
@@ -1323,6 +1333,7 @@ def evaluate_vqa(
             cached_features=cached_features,
             vision_encoder_path=args.rices_vision_encoder_path,
             vision_encoder_pretrained=args.rices_vision_encoder_pretrained,
+            similar_in_topk=args.rices_find_by_ranking_similar_text_similar_in_top_k
         )
         query_set = None
     elif args.rices_clustering:
@@ -1444,7 +1455,7 @@ def evaluate_vqa(
             ques_to_demos_and_predictions.update(item)
         # save the demos and predictions
         save_to = os.path.join(experiment_base_dir if experiment_base_dir is not None else '',
-                               f"{dataset_name}_demos_and_predictions_shots_{num_shots}.json")
+                               f"{dataset_name}_demos_and_predictions_shots_{num_shots}_seed_{seed}.json")
         with open(save_to, "w") as f:
             f.write(json.dumps(ques_to_demos_and_predictions, indent=4))
 
@@ -1459,7 +1470,7 @@ def evaluate_vqa(
     # save the predictions to a temporary file
     # random_uuid = str(uuid.uuid4())
     result_file = os.path.join(experiment_base_dir if experiment_base_dir is not None else '',
-                               f"{dataset_name}_results_shots_{num_shots}.json")
+                               f"{dataset_name}_results_shots_{num_shots}_seed_{seed}.json")
 
     with open(result_file, "w") as f:
         f.write(json.dumps(all_predictions, indent=4))
@@ -1615,6 +1626,7 @@ def evaluate_captioning(
             cached_features=cached_features,
             vision_encoder_path=args.rices_vision_encoder_path,
             vision_encoder_pretrained=args.rices_vision_encoder_pretrained,
+            similar_in_topk=args.rices_find_by_ranking_similar_text_similar_in_top_k
         )
         query_set = None
     elif args.rices_text:
@@ -1697,15 +1709,14 @@ def evaluate_captioning(
             ques_to_demos_and_predictions.update(item)
         # save the demos and predictions
         save_to = os.path.join(experiment_base_dir if experiment_base_dir is not None else '',
-                               f"{dataset_name}_demos_and_predictions_shots_{num_shots}.json")
+                               f"{dataset_name}_demos_and_predictions_shots_{num_shots}_seed_{seed}.json")
         with open(save_to, "w") as f:
             f.write(json.dumps(ques_to_demos_and_predictions, indent=4))
 
     # save the predictions to a temporary file
     # results_path = f"{dataset_name}results_{uuid.uuid4()}_num_shots_{num_shots}.json"
     results_path = os.path.join(experiment_base_dir if experiment_base_dir is not None else '',
-                               f"{dataset_name}_results_shots_{num_shots}.json")
-
+                               f"{dataset_name}_results_shots_{num_shots}_seed_{seed}.json")
 
     if args.rank != 0:
         return None
@@ -1899,7 +1910,22 @@ def prepare_vqa_batch(
             batch_demo_samples = rices_dataset.find_every_nth(batch["image"], effective_num_shots, n=4)
             # assert False
         elif args.rices_find_by_ranking_similar_text:
-            batch_demo_samples = rices_dataset.find_by_ranking_similar_text(batch_image=batch["image"], batch_text=batch["question"],
+            # logger.info(f"len batch['question']: {len(batch['question'])}")
+            # logger.info(f"len batch['answers']: {len(batch['answers'])}")
+            # logger.info(f"batch['question']: {batch['question']}")
+            # logger.info(f"batch['answers']: {batch['answers']}")
+            # logger.info(f"batch['question'][0]: {batch['question'][0]}")
+            # logger.info(f"batch['answers'][0]: {batch['answers'][0]}")
+            # assert False
+            if args.rices_similar_with_labels:
+                # logger.info(f"batch_question: {batch_question}")
+                # assert False
+                batch_demo_samples = rices_dataset.find_by_ranking_similar_text(batch_image=batch["image"],
+                                                                                batch_text=batch["question"],
+                                                                                num_examples=effective_num_shots,
+                                                                                with_answers=True)
+            else:
+                batch_demo_samples = rices_dataset.find_by_ranking_similar_text(batch_image=batch["image"], batch_text=batch["question"],
                                                        num_examples=effective_num_shots)
         else:
             batch_demo_samples = rices_dataset.find(batch["image"], effective_num_shots)
@@ -2260,6 +2286,7 @@ def evaluate_classification(
             cached_features=cached_features,
             vision_encoder_path=args.rices_vision_encoder_path,
             vision_encoder_pretrained=args.rices_vision_encoder_pretrained,
+            similar_in_topk=args.rices_find_by_ranking_similar_text_similar_in_top_k
         )
     else:
         # subset of the training set to sample context images from
