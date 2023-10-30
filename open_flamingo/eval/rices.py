@@ -174,7 +174,7 @@ class RICES:
                 similarity = similarity.unsqueeze(0)
             # logger.debug(f"similarity shape: {similarity.shape}")
             # Get the indices of the 'num_examples' most similar images
-            indices = similarity.argsort(dim=-1, descending=True)[:, :self.similar_in_topk] 
+            indices = similarity.argsort(dim=-1, descending=True)[:, :self.similar_in_topk]
             rices_samples = [[self.dataset[i] for i in reversed(row)] for row in indices]
             # indices = similarity.argsort(dim=-1, descending=True)[:, :num_examples]
             # return [[self.dataset[i] for i in reversed(row)] for row in indices]
