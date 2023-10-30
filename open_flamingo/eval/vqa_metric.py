@@ -30,7 +30,7 @@ def compute_gqa_accuracy(result_file, annotation_file):
     predict_que2ans = {}
     for result in results:
         ans = result["answer"]
-        ans = ans.replace("\n","")
+        ans = ans.replace("\n","").replace(".","")
         predict_que2ans[result["question_id"]] = ans
     gt_que2ans = {}
     for annotation in annotations["annotations"]:
@@ -585,4 +585,6 @@ def postprocess_vqa_generation(predictions):
     answer = re.split(", ", answer, 1)[0]
     answer = answer.replace("\n", "")
     answer = answer.lower()
+    answer = answer.strip()
+    answer = answer.replace(".", "")
     return answer
