@@ -213,4 +213,5 @@ def postprocess_ok_vqa_generation(predictions) -> str:
     prediction = re.split(", ", prediction, 1)[0]
     prediction_stem = stemmer.stem(prediction)
     prediction_stem = prediction_stem.lower()
+    prediction_stem = prediction_stem.strip()
     return prediction_stem
