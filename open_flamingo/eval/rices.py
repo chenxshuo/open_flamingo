@@ -17,6 +17,7 @@ class RICES:
         vision_encoder_path="ViT-L-14",
         vision_encoder_pretrained="openai",
         cached_features=None,
+        similar_in_topk=200,
     ):
         self.dataset = dataset
         self.device = device
@@ -37,6 +38,10 @@ class RICES:
             self.features = self._precompute_features()
         else:
             self.features = cached_features
+
+        self.similar_in_topk = similar_in_topk
+        # logger.critical(f"RICES: similar_in_topk: {self.similar_in_topk}")
+        # assert False
 
     def _precompute_features(self):
         features = []
@@ -133,7 +138,7 @@ class RICES:
         return [[self.dataset[i] for i in reversed(row)[::n]] for row in indices]
 
 
-    def find_by_ranking_similar_text(self, batch_image, batch_text, num_examples):
+    def find_by_ranking_similar_text(self, batch_image, batch_text, num_examples, with_answers=False):
         """
         RICES Images -> rank based on text similarity
 
@@ -169,7 +174,7 @@ class RICES:
                 similarity = similarity.unsqueeze(0)
             # logger.debug(f"similarity shape: {similarity.shape}")
             # Get the indices of the 'num_examples' most similar images
-            indices = similarity.argsort(dim=-1, descending=True)[:, :200] # TODO, top-100
+            indices = similarity.argsort(dim=-1, descending=True)[:, :self.similar_in_topk] 
             rices_samples = [[self.dataset[i] for i in reversed(row)] for row in indices]
             # indices = similarity.argsort(dim=-1, descending=True)[:, :num_examples]
             # return [[self.dataset[i] for i in reversed(row)] for row in indices]
@@ -186,7 +191,10 @@ class RICES:
             text_query_features /= text_query_features.norm(dim=-1, keepdim=True)
 
             if self.dataset.dataset_name in ["vqav2", "ok_vqa", "vizwiz", "gqa", "textvqa"]:
-                rices_samples_text = [[sample["question"] for sample in samples] for samples in rices_samples]
+                if with_answers:
+                    rices_samples_text = [[sample["question"] + " " + ", ".join(sample["answers"]) for sample in samples] for samples in rices_samples]
+                else:
+                    rices_samples_text = [[sample["question"] for sample in samples] for samples in rices_samples]
             elif self.dataset.dataset_name in ["coco", "flickr"]:
                 rices_samples_text = [[sample["caption"] for sample in samples] for samples in rices_samples]
             else:
