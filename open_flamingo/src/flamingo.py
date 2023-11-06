@@ -27,6 +27,8 @@ class Flamingo(nn.Module):
         vis_dim: int,
         cross_attn_every_n_layers: int = 1,
         gradient_checkpointing: bool = False,
+        hide_demo_media_embs: bool = False,
+        hide_query_media_embs: bool = False,
     ):
         """
         Args:
@@ -56,6 +58,8 @@ class Flamingo(nn.Module):
             vis_hidden_size=self.vis_dim,
             cross_attn_every_n_layers=cross_attn_every_n_layers,
             gradient_checkpointing=gradient_checkpointing,
+            hide_demo_media_embs=hide_demo_media_embs,
+            hide_query_media_embs=hide_query_media_embs,
         )
         self._use_gradient_checkpointing = gradient_checkpointing
         self.perceiver._use_gradient_checkpointing = gradient_checkpointing
@@ -69,6 +73,7 @@ class Flamingo(nn.Module):
         clear_conditioned_layers: bool = True,
         past_key_values=None,
         use_cache: bool = False,
+        output_attentions: bool = False,
     ):
         """
         Forward pass of Flamingo.
@@ -117,6 +122,7 @@ class Flamingo(nn.Module):
             labels=labels,
             past_key_values=past_key_values,
             use_cache=use_cache,
+            output_attentions=output_attentions,
         )
 
         if clear_conditioned_layers:

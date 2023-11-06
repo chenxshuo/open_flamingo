@@ -21,6 +21,9 @@ def create_model_and_transforms(
     decoder_layers_attr_name: str = None,
     freeze_lm_embeddings: bool = False,
     cache_dir: Optional[str] = None,
+    freeze_lm: bool = True,
+    hide_demo_media_embs: bool = False,
+    hide_query_media_embs: bool = False,
     **flamingo_kwargs,
 ):
     """
@@ -73,7 +76,7 @@ def create_model_and_transforms(
     )
     # logger.info(f"lang_encoder source code file: {inspect.getsource(lang_encoder.__class__)}")
     # logger.info(f"lang_encoder source code file: {inspect.getsourcefile(lang_encoder.__class__)}")
-
+    # assert False
     # hacks for MPT-1B, which doesn't have a get_input_embeddings method
     if "mpt-1b-redpajama-200b" in lang_encoder_path:
 
@@ -103,12 +106,15 @@ def create_model_and_transforms(
             "width"
         ],
         cross_attn_every_n_layers=cross_attn_every_n_layers,
+        hide_demo_media_embs=hide_demo_media_embs,
+        hide_query_media_embs=hide_query_media_embs,
         **flamingo_kwargs,
     )
 
-    # Freeze all parameters
-    model.requires_grad_(False)
-    assert sum(p.numel() for p in model.parameters() if p.requires_grad) == 0
+    if freeze_lm: # default True; only False in debug and checking mode
+        # Freeze all parameters
+        model.requires_grad_(False)
+        assert sum(p.numel() for p in model.parameters() if p.requires_grad) == 0
 
     # Unfreeze perceiver, gated_cross_attn_layers, and LM input embeddings
     model.perceiver.requires_grad_(True)

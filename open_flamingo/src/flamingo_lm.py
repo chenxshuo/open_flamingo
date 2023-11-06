@@ -90,6 +90,8 @@ class FlamingoLMMixin(nn.Module):
         vis_hidden_size,
         cross_attn_every_n_layers,
         gradient_checkpointing,
+        hide_demo_media_embs=False,
+        hide_query_media_embs=False,
     ):
         """
         Initialize Flamingo by adding a new gated cross attn to the decoder. Store the media token id for computing the media locations.
@@ -98,7 +100,9 @@ class FlamingoLMMixin(nn.Module):
         self.gated_cross_attn_layers = nn.ModuleList(
             [
                 GatedCrossAttentionBlock(
-                    dim=lang_hidden_size, dim_visual=vis_hidden_size
+                    dim=lang_hidden_size, dim_visual=vis_hidden_size,
+                    hide_demo_media_embs=hide_demo_media_embs,
+                    hide_query_media_embs=hide_query_media_embs,
                 )
                 if (layer_idx + 1) % cross_attn_every_n_layers == 0
                 else None

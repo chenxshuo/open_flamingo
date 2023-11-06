@@ -145,6 +145,8 @@ class MaskedCrossAttention(nn.Module):
         dim_head=64,
         heads=8,
         only_attend_immediate_media=True,
+        hide_demo_media_embs=False,
+        hide_query_media_embs=False,
     ):
         super().__init__()
         self.layer_number = MaskedCrossAttention.LAYER_NUMBER
@@ -175,6 +177,9 @@ class MaskedCrossAttention(nn.Module):
         # whether for text to only attend to immediate preceding image, or all previous images
         # True
         self.only_attend_immediate_media = only_attend_immediate_media
+
+        self.hide_demo_media_embs = hide_demo_media_embs
+        self.hide_query_media_embs = hide_query_media_embs
 
     def forward(self, x, media, media_locations=None, use_cached_media=False):
         """
@@ -213,6 +218,21 @@ class MaskedCrossAttention(nn.Module):
 
         q = self.to_q(x) # q takes the language features
         logger.debug(f"q shape is {q.shape}")
+
+        if self.hide_demo_media_embs:
+            media[:, :-1] = 0
+            # logger.info(f"set media[:, :-1] to 0, media shape is {media.shape}")
+            for i in range(media.shape[1]-1):
+                # logger.info(f"i is {i}")
+                # logger.info(f"media[:, {i}] sum is {media[:, i].sum()}")
+                # logger.info(f"media[:, {i}] shape is {media[:, i].shape}")
+                # logger.info(f"media[:, {i}] is {media[:, i]}")
+                assert media[:, i].sum() == 0
+            # assert media[:, -1].sum() != 0
+        if self.hide_query_media_embs:
+            media[:, -1] = 0
+            assert media[:, -1].sum() == 0
+            # logger.info(f"set media[:, -1] to 0, media shape is {media.shape}")
         media = rearrange(media, "b t n d -> b (t n) d")
         logger.debug(f"after rearrange media shape is {media.shape}")
 
@@ -293,6 +313,8 @@ class GatedCrossAttentionBlock(nn.Module):
         heads=8,
         ff_mult=4,
         only_attend_immediate_media=True,
+        hide_demo_media_embs=False,
+        hide_query_media_embs=False,
     ):
         super().__init__()
         self.attn = MaskedCrossAttention(
@@ -301,11 +323,24 @@ class GatedCrossAttentionBlock(nn.Module):
             dim_head=dim_head,
             heads=heads,
             only_attend_immediate_media=only_attend_immediate_media,
+            hide_demo_media_embs=hide_demo_media_embs,
+            hide_query_media_embs=hide_query_media_embs,
         )
         self.attn_gate = nn.Parameter(torch.tensor([0.0]))
 
         self.ff = FeedForward(dim, mult=ff_mult)
         self.ff_gate = nn.Parameter(torch.tensor([0.0]))
+
+        self.hide_demo_media_embs = hide_demo_media_embs
+        self.hide_query_media_embs = hide_query_media_embs
+
+        self.attn_output = []
+
+    def set_attn_output(self, attn_output):
+        self.attn_output.append(attn_output.cpu().detach())
+
+    def get_attn_output(self):
+        return self.attn_output
 
     def forward(
         self,
@@ -321,6 +356,7 @@ class GatedCrossAttentionBlock(nn.Module):
                 media_locations=media_locations,
                 use_cached_media=use_cached_media,
             )
+        # self.set_attn_output(attn_out)
         logger.debug(f"x shape is {x.shape}") # 1, 22, 2560
         logger.debug(f"attn_out shape is {attn_out.shape}") # 1, 22, 2560
         x = attn_out * self.attn_gate.tanh() + x
