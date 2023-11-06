@@ -39,10 +39,10 @@
 #bash open_flamingo/scripts/language_understand/run_eval_9B_gqa.sh no_labels 26006 16 8 &> ./logs/eval_gqa_language_no_labels_shot16.log
 #bash open_flamingo/scripts/language_understand/run_eval_9B_gqa.sh no_labels 26007 32 8 &> ./logs/eval_gqa_language_no_labels_shot32.log
 
-bash open_flamingo/scripts/language_understand/run_eval_9B_gqa.sh no_questions_no_labels 26004 4 64 &> ./logs/eval_gqa_language_no_question_no_labels_shot4.log
-bash open_flamingo/scripts/language_understand/run_eval_9B_gqa.sh no_questions_no_labels 26005 8 64 &> ./logs/eval_gqa_language_no_question_no_labels_shot8.log
-bash open_flamingo/scripts/language_understand/run_eval_9B_gqa.sh no_questions_no_labels 26006 16 8 &> ./logs/eval_gqa_language_no_question_no_labels_shot16.log
-bash open_flamingo/scripts/language_understand/run_eval_9B_gqa.sh no_questions_no_labels 26007 32 8 &> ./logs/eval_gqa_language_no_question_no_labels_shot32.log
+#bash open_flamingo/scripts/language_understand/run_eval_9B_gqa.sh no_questions_no_labels 26004 4 64 &> ./logs/eval_gqa_language_no_question_no_labels_shot4.log
+#bash open_flamingo/scripts/language_understand/run_eval_9B_gqa.sh no_questions_no_labels 26005 8 64 &> ./logs/eval_gqa_language_no_question_no_labels_shot8.log
+#bash open_flamingo/scripts/language_understand/run_eval_9B_gqa.sh no_questions_no_labels 26006 16 8 &> ./logs/eval_gqa_language_no_question_no_labels_shot16.log
+#bash open_flamingo/scripts/language_understand/run_eval_9B_gqa.sh no_questions_no_labels 26007 32 8 &> ./logs/eval_gqa_language_no_question_no_labels_shot32.log
 
 bash open_flamingo/scripts/language_understand/run_eval_9B_gqa.sh only_labels 26004 4 64 &> ./logs/eval_gqa_language_only_labels_shot4.log
 bash open_flamingo/scripts/language_understand/run_eval_9B_gqa.sh only_labels 26005 8 64 &> ./logs/eval_gqa_language_only_labels_shot8.log

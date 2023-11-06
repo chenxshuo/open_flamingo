@@ -18,7 +18,8 @@ CROSS_ATTN_EVERY_N_LAYERS=4
 SHOTS=$1
 MASTER_PORT=$2
 BS=$3
-SIMILAR_IN_TOP_K=$4
+#VISUAL_MODE="no_images"
+VISUAL_MODE="random"
 
 export CUDA_VISIBLE_DEVICES=0,1,2,3
 NUM_GPUs=`echo $CUDA_VISIBLE_DEVICES | grep -P -o '\d' | wc -l`
@@ -39,11 +40,11 @@ torchrun --nnodes=1 --nproc_per_node="$NUM_GPUs" --master_port=${MASTER_PORT} op
     --shots ${SHOTS} \
     --trial_seeds 42 \
     --demo_mode  "gold" \
-    --visual_demo_mode "random" \
+    --visual_demo_mode $VISUAL_MODE \
     --rices \
     --rices_find_by_ranking_similar_text \
-    --rices_find_by_ranking_similar_text_similar_in_top_k ${SIMILAR_IN_TOP_K} \
     --cached_demonstration_features ${OUT_DIR} \
+    --rices_do_reverse \
     --vision_encoder_path ViT-L-14 \
     --vision_encoder_pretrained openai \
     --eval_ok_vqa \

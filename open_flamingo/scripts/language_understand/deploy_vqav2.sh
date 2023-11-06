@@ -34,8 +34,8 @@
 #bash open_flamingo/scripts/language_understand/run_eval_9B_vqav2.sh random_question_inputs 26003 8 16 &> ./logs/eval_vqav2_language_random_question_inputs_shot8.log
 #
 #bash open_flamingo/scripts/language_understand/run_eval_9B_vqav2.sh random_strings_inputs 26001 16 8 &> ./logs/eval_vqav2_language_random_strings_inputs_shot16.log
-bash open_flamingo/scripts/language_understand/run_eval_9B_vqav2.sh ood_inputs 26005 16 8 &> ./logs/eval_vqav2_language_ood_inputs_shot16.log
-bash open_flamingo/scripts/language_understand/run_eval_9B_vqav2.sh random_question_inputs 26003 16 8 &> ./logs/eval_vqav2_language_random_question_inputs_shot16.log
+#bash open_flamingo/scripts/language_understand/run_eval_9B_vqav2.sh ood_inputs 26005 16 8 &> ./logs/eval_vqav2_language_ood_inputs_shot16.log
+#bash open_flamingo/scripts/language_understand/run_eval_9B_vqav2.sh random_question_inputs 26003 16 8 &> ./logs/eval_vqav2_language_random_question_inputs_shot16.log
 
 bash open_flamingo/scripts/language_understand/run_eval_9B_vqav2.sh random_strings_inputs 26001 32 8 &> ./logs/eval_vqav2_language_random_strings_inputs_shot32.log
 bash open_flamingo/scripts/language_understand/run_eval_9B_vqav2.sh ood_inputs 26005 32 8 &> ./logs/eval_vqav2_language_ood_inputs_shot32.log

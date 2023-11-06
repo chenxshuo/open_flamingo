@@ -10,17 +10,17 @@ OK_VQA_VAL_ANNO_PATH="${BASE_DATA_PATH}/okvqa/mscoco_val2014_annotations.json"
 OK_VQA_VAL_QUES_PATH="${BASE_DATA_PATH}/okvqa/OpenEnded_mscoco_val2014_questions.json"
 OUT_DIR="${BASE_DATA_PATH}/okvqa/rice_features"
 
-# 9B
-CKPT_PATH="/dss/dssmcmlfs01/pn34sa/pn34sa-dss-0000/.cache/huggingface/hub/models--openflamingo--OpenFlamingo-9B-vitl-mpt7b/snapshots/e6e175603712c7007fe3b9c0d50bdcfbd83adfc2/checkpoint.pt"
-LM_MODEL="anas-awadalla/mpt-7b"
-CROSS_ATTN_EVERY_N_LAYERS=4
+#3BI
+CKPT_PATH="/dss/dssmcmlfs01/pn34sa/pn34sa-dss-0000/.cache/huggingface/hub/models--openflamingo--OpenFlamingo-3B-vitl-mpt1b-langinstruct/snapshots/656bbbcd4508db84ccc83c02361011c6fe92ae93/checkpoint.pt"
+LM_MODEL="anas-awadalla/mpt-1b-redpajama-200b-dolly"
+CROSS_ATTN_EVERY_N_LAYERS=1
+
 
 SHOTS=$1
 MASTER_PORT=$2
 BS=$3
-SIMILAR_IN_TOP_K=$4
 
-export CUDA_VISIBLE_DEVICES=0,1,2,3
+export CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7
 NUM_GPUs=`echo $CUDA_VISIBLE_DEVICES | grep -P -o '\d' | wc -l`
 TIMESTAMP=`date +"%Y-%m-%d-%T"`
 COMMENT="9B-rice-okvqa-shots-${SHOTS}"
@@ -35,14 +35,12 @@ torchrun --nnodes=1 --nproc_per_node="$NUM_GPUs" --master_port=${MASTER_PORT} op
     --results_file ${RESULTS_FILE} \
     --precision amp_bf16 \
     --batch_size ${BS} \
-    --num_trials 1 \
+    --num_trials 4 \
     --shots ${SHOTS} \
-    --trial_seeds 42 \
+    --trial_seeds 12 22 32 52 \
     --demo_mode  "gold" \
     --visual_demo_mode "random" \
     --rices \
-    --rices_find_by_ranking_similar_text \
-    --rices_find_by_ranking_similar_text_similar_in_top_k ${SIMILAR_IN_TOP_K} \
     --cached_demonstration_features ${OUT_DIR} \
     --vision_encoder_path ViT-L-14 \
     --vision_encoder_pretrained openai \

@@ -8,17 +8,18 @@ GQA_VAL_QUES_PATH="${ANNO_BASE}/test_ques_vqav2_format.json"
 GQA_VAL_ANNO_PATH="${ANNO_BASE}/test_anno_vqav2_format.json"
 OUT_DIR="${ANNO_BASE}/rice_features"
 
-# 9B
-CKPT_PATH="/dss/dssmcmlfs01/pn34sa/pn34sa-dss-0000/.cache/huggingface/hub/models--openflamingo--OpenFlamingo-9B-vitl-mpt7b/snapshots/e6e175603712c7007fe3b9c0d50bdcfbd83adfc2/checkpoint.pt"
-LM_MODEL="anas-awadalla/mpt-7b"
-CROSS_ATTN_EVERY_N_LAYERS=4
+# 4B
+CKPT_PATH="/dss/dssmcmlfs01/pn34sa/pn34sa-dss-0000/.cache/huggingface/hub/models--openflamingo--OpenFlamingo-4B-vitl-rpj3b/snapshots/df8d3f7e75bcf891ce2fbf5253a12f524692d9c2/checkpoint.pt"
+LM_MODEL="togethercomputer/RedPajama-INCITE-Base-3B-v1"
+CROSS_ATTN_EVERY_N_LAYERS=2
 
 SHOTS=$1
 MASTER_PORT=$2
 BS=$3
-SIMILAR_IN_TOP_K=$4
+#VISUAL_MODE="no_images"
+VISUAL_MODE="random"
 
-export CUDA_VISIBLE_DEVICES=0,1,2,3
+export CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7
 NUM_GPUs=`echo $CUDA_VISIBLE_DEVICES | grep -P -o '\d' | wc -l`
 TIMESTAMP=`date +"%Y-%m-%d-%T"`
 COMMENT="9B-rice-gqa-shots-${SHOTS}"
@@ -33,14 +34,13 @@ torchrun --nnodes=1 --nproc_per_node="$NUM_GPUs" --master_port=${MASTER_PORT} op
     --results_file ${RESULTS_FILE} \
     --precision amp_bf16 \
     --batch_size ${BS} \
-    --num_trials 1 \
+    --num_trials 4 \
     --shots ${SHOTS} \
-    --trial_seeds 42 \
+    --trial_seeds 12 22 32 52 \
     --demo_mode  "gold" \
-    --visual_demo_mode "random" \
+    --visual_demo_mode $VISUAL_MODE \
     --rices \
     --rices_find_by_ranking_similar_text \
-    --rices_find_by_ranking_similar_text_similar_in_top_k ${SIMILAR_IN_TOP_K} \
     --cached_demonstration_features ${OUT_DIR} \
     --vision_encoder_path ViT-L-14 \
     --vision_encoder_pretrained openai \
