@@ -199,6 +199,11 @@ parser.add_argument(
     help="Whether to use RICES then rank by text similarity.",
 )
 parser.add_argument(
+    "--rices_do_reverse",
+    action="store_true",
+    help="Whether to use RICES then rank by text similarity; return reversed row, i.e. most similar is closest to the query.",
+)
+parser.add_argument(
     "--rices_similar_with_labels",
     action="store_true",
     help="Whether to use RICES then rank by text similarity with VQA labels.",
@@ -1392,6 +1397,7 @@ def evaluate_vqa(
             jpeg_val_to_info=jpeg_val_to_info,
             rices_dataset=rices_dataset,
             ood_images=ood_images,
+            do_reverse=args.rices_do_reverse,
         )
         outputs = eval_model.get_outputs(
             batch_images=batch_images,
@@ -1662,6 +1668,7 @@ def evaluate_captioning(
             visual_demo_mode=visual_demo_mode,
             ood_images=ood_images,
             caption_shot_results=caption_shot_results,
+            do_reverse=args.rices_do_reverse,
 
         )
         outputs = eval_model.get_outputs(
@@ -1759,6 +1766,7 @@ def prepare_caption_batch(
         visual_demo_mode,
         ood_images=None,
         caption_shot_results=None,
+        do_reverse=False,
 ):
     assert visual_demo_mode in ["random", "no_images", "blank_images", "ood_images"], (
         f"Unsupported visual demo mode: {visual_demo_mode}"
@@ -1770,7 +1778,8 @@ def prepare_caption_batch(
             shot_results = prepare_caption_shot_results(batch, caption_shot_results)
             batch_demo_samples = rices_dataset.find_by_ranking_similar_text(batch_image=batch["image"],
                                                                             batch_text=shot_results,
-                                                                            num_examples=effective_num_shots
+                                                                            num_examples=effective_num_shots,
+                                                                            do_reverse=do_reverse
                                                                             )
             # for i in range(len(batch["image"])):
             #     for sample in batch_demo_samples[i]:
@@ -1901,6 +1910,7 @@ def prepare_vqa_batch(
         jpeg_val_to_info,
         rices_dataset,
         ood_images=None,
+        do_reverse=False,
 ):
     assert visual_demo_mode in ["random", "same_category", "different_number_of_objects", "no_images", "blank_images", "ood_images"], (
         f"Unsupported visual demo mode: {visual_demo_mode}"
@@ -1925,8 +1935,9 @@ def prepare_vqa_batch(
                                                                                 num_examples=effective_num_shots,
                                                                                 with_answers=True)
             else:
-                batch_demo_samples = rices_dataset.find_by_ranking_similar_text(batch_image=batch["image"], batch_text=batch["question"],
-                                                       num_examples=effective_num_shots)
+                batch_demo_samples = rices_dataset.find_by_ranking_similar_text(
+                    batch_image=batch["image"], batch_text=batch["question"],
+                    num_examples=effective_num_shots, do_reverse=do_reverse)
         else:
             batch_demo_samples = rices_dataset.find(batch["image"], effective_num_shots)
         # for i in range(len(batch["image"])):

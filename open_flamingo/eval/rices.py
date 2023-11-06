@@ -138,7 +138,7 @@ class RICES:
         return [[self.dataset[i] for i in reversed(row)[::n]] for row in indices]
 
 
-    def find_by_ranking_similar_text(self, batch_image, batch_text, num_examples, with_answers=False):
+    def find_by_ranking_similar_text(self, batch_image, batch_text, num_examples, with_answers=False, do_reverse=False):
         """
         RICES Images -> rank based on text similarity
 
@@ -221,6 +221,9 @@ class RICES:
             # indices = indices[:, sub_ind[:num_examples]]
             # logger.debug(f"indices.shape: {indices.shape}")
             # assert False
-        return [[rices_samples[j][i] for i in row] for j,row in enumerate(indices)]
+        if do_reverse:
+            return [[rices_samples[j][i] for i in reversed(row)] for j,row in enumerate(indices)]
+        else:
+            return [[rices_samples[j][i] for i in row] for j,row in enumerate(indices)]
 
 
