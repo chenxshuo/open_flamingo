@@ -1,0 +1,9 @@
+dataset,compare_to,similarity
+VQAv2,no demo,0.934
+VQAv2,no query,0.835
+OK-VQA,no demo,0.90
+OK-VQA,no query,0.76
+GQA,no demo,0.92
+GQA,no query,0.84
+COCO,no demo,0.83
+COCO,no query,0.62
