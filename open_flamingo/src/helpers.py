@@ -162,17 +162,17 @@ class MaskedCrossAttention(nn.Module):
         self.to_out = nn.Linear(inner_dim, dim, bias=False)
 
         # check for OF 4B
-        logger.debug(f"==== Initialize MaskedCrossAttention layer {self.layer_number} ====")
-        logger.debug(f"dim is {dim}") #2560
-        logger.debug(f"dim_visual is {dim_visual}") # 1024
-        logger.debug(f"dim_head is {dim_head}") # 64
-        logger.debug(f"heads is {heads}") # 8
-        logger.debug(f"inner_dim is {inner_dim}") # 512
-        logger.debug(f"only_attend_immediate_media is {only_attend_immediate_media}") # True
-        logger.debug(f"self.norm is {self.norm}")
-        logger.debug(f"self.to_q is {self.to_q}")
-        logger.debug(f"self.to_kv is {self.to_kv}")
-        logger.debug(f"self.to_out is {self.to_out}")
+        #logger.debug(f"==== Initialize MaskedCrossAttention layer {self.layer_number} ====")
+        #logger.debug(f"dim is {dim}") #2560
+        #logger.debug(f"dim_visual is {dim_visual}") # 1024
+        #logger.debug(f"dim_head is {dim_head}") # 64
+        #logger.debug(f"heads is {heads}") # 8
+        #logger.debug(f"inner_dim is {inner_dim}") # 512
+        #logger.debug(f"only_attend_immediate_media is {only_attend_immediate_media}") # True
+        #logger.debug(f"self.norm is {self.norm}")
+        #logger.debug(f"self.to_q is {self.to_q}")
+        #logger.debug(f"self.to_kv is {self.to_kv}")
+        #logger.debug(f"self.to_out is {self.to_out}")
 
         # whether for text to only attend to immediate preceding image, or all previous images
         # True
@@ -195,12 +195,12 @@ class MaskedCrossAttention(nn.Module):
                 registered in media_locations. T_txt does not need to exactly
                 equal media_locations.shape[1] in this case
         """
-        logger.debug(f"============In layer {self.layer_number} of MaskedCrossAttention============")
-        logger.debug(f"x shape is {x.shape}")
-        logger.debug(f"media shape is {media.shape}")
-        logger.debug(f"media_locations shape is {media_locations.shape}")
-        logger.debug(f"media_locations is {media_locations}")
-        logger.debug(f"use_cached_media is {use_cached_media}")
+        #logger.debug(f"============In layer {self.layer_number} of MaskedCrossAttention============")
+        #logger.debug(f"x shape is {x.shape}")
+        #logger.debug(f"media shape is {media.shape}")
+        #logger.debug(f"media_locations shape is {media_locations.shape}")
+        #logger.debug(f"media_locations is {media_locations}")
+        #logger.debug(f"use_cached_media is {use_cached_media}")
 
         if not use_cached_media:
             assert (
@@ -211,13 +211,13 @@ class MaskedCrossAttention(nn.Module):
         # batch size, number of image tokens?, number of latents
         _, T_img, n = media.shape[:3]
         h = self.heads
-        logger.debug(f"head is {h}")
+        #logger.debug(f"head is {h}")
 
         x = self.norm(x)
-        logger.debug(f"after norm, x shape is {x.shape}")
+        #logger.debug(f"after norm, x shape is {x.shape}")
 
         q = self.to_q(x) # q takes the language features
-        logger.debug(f"q shape is {q.shape}")
+        #logger.debug(f"q shape is {q.shape}")
 
         if self.hide_demo_media_embs:
             media[:, :-1] = 0
@@ -234,25 +234,25 @@ class MaskedCrossAttention(nn.Module):
             assert media[:, -1].sum() == 0
             # logger.info(f"set media[:, -1] to 0, media shape is {media.shape}")
         media = rearrange(media, "b t n d -> b (t n) d")
-        logger.debug(f"after rearrange media shape is {media.shape}")
+        #logger.debug(f"after rearrange media shape is {media.shape}")
 
         k, v = self.to_kv(media).chunk(2, dim=-1) # kv, take the media features
-        logger.debug(f"k shape is {k.shape}")
-        logger.debug(f"v shape is {v.shape}")
+        #logger.debug(f"k shape is {k.shape}")
+        #logger.debug(f"v shape is {v.shape}")
         q, k, v = rearrange_many((q, k, v), "b n (h d) -> b h n d", h=h)
-        logger.debug(f"After rearrange_many")
-        logger.debug(f"q shape is {q.shape}")
-        logger.debug(f"k shape is {k.shape}")
-        logger.debug(f"v shape is {v.shape}")
+        #logger.debug(f"After rearrange_many")
+        #logger.debug(f"q shape is {q.shape}")
+        #logger.debug(f"k shape is {k.shape}")
+        #logger.debug(f"v shape is {v.shape}")
 
         q = q * self.scale
 
         sim = einsum("... i d, ... j d -> ... i j", q, k)
-        logger.debug(f"sim = qk, sim shape is {sim.shape}")
+        #logger.debug(f"sim = qk, sim shape is {sim.shape}")
 
         if exists(media_locations):
             media_time = torch.arange(T_img, device=x.device) + 1
-            logger.debug(f"media_time shape is {media_time.shape}")
+            #logger.debug(f"media_time shape is {media_time.shape}")
 
             if use_cached_media:
                 # text time is set to the last cached media location
@@ -261,11 +261,11 @@ class MaskedCrossAttention(nn.Module):
                     "b -> b i",
                     i=T_txt,
                 )
-                logger.debug(f"use_cached_media is True, text_time shape is {text_time.shape}")
+                #logger.debug(f"use_cached_media is True, text_time shape is {text_time.shape}")
             else:
                 # at each boolean of True, increment the time counter (relative to media time)
                 text_time = media_locations.cumsum(dim=-1)
-                logger.debug(f"use_cached_media is False, text_time shape is {text_time.shape}")
+                #logger.debug(f"use_cached_media is False, text_time shape is {text_time.shape}")
 
             # text time must equal media time if only attending to most immediate image
             # otherwise, as long as text time is greater than media time (if attending to all previous images / media)
@@ -275,13 +275,13 @@ class MaskedCrossAttention(nn.Module):
                 rearrange(text_time, "b i -> b 1 i 1"),
                 repeat(media_time, "j -> 1 1 1 (j n)", n=n),
             )
-            logger.debug(f"text_to_media_mask shape {text_to_media_mask.shape}")
+            #logger.debug(f"text_to_media_mask shape {text_to_media_mask.shape}")
             sim = sim.masked_fill(~text_to_media_mask, -torch.finfo(sim.dtype).max)
 
         sim = sim - sim.amax(dim=-1, keepdim=True).detach()
         # attention matrix
         attn = sim.softmax(dim=-1)
-        logger.debug(f"attn shape after sim_masked and softmax is {attn.shape}")
+        #logger.debug(f"attn shape after sim_masked and softmax is {attn.shape}")
 
         if exists(media_locations) and self.only_attend_immediate_media:
             # any text without a preceding media needs to have attention zeroed out
@@ -290,16 +290,16 @@ class MaskedCrossAttention(nn.Module):
                 text_without_media_mask, "b i -> b 1 i 1"
             )
             attn = attn.masked_fill(text_without_media_mask, 0.0)
-            logger.debug(f"masked again attn shape after text_without_media_mask is {attn.shape}")
+            #logger.debug(f"masked again attn shape after text_without_media_mask is {attn.shape}")
         # if attn.shape == torch.Size([1, 8, 1, 192]):
         #     torch.save(attn, f"./store_attention/masked_attn_after_generate_1st_token_{self.layer_number}.pt")
         #     assert False
         out = einsum("... i j, ... j d -> ... i d", attn, v)
-        logger.debug(f"out shape is {out.shape}")
+        #logger.debug(f"out shape is {out.shape}")
         out = rearrange(out, "b h n d -> b n (h d)")
-        logger.debug(f"out shape after rearrange is {out.shape}")
+        #logger.debug(f"out shape after rearrange is {out.shape}")
         out = self.to_out(out)
-        logger.debug(f"out shape after to_out is {out.shape}")
+        #logger.debug(f"out shape after to_out is {out.shape}")
         return out
 
 
@@ -349,30 +349,30 @@ class GatedCrossAttentionBlock(nn.Module):
         media_locations=None,
         use_cached_media=False,
     ):
-        logger.debug(f"in GatedCrossAttentionBlock forward")
-        attn_out = self.attn(
-                x,
-                media,
-                media_locations=media_locations,
-                use_cached_media=use_cached_media,
-            )
-        # self.set_attn_output(attn_out)
-        logger.debug(f"x shape is {x.shape}") # 1, 22, 2560
-        logger.debug(f"attn_out shape is {attn_out.shape}") # 1, 22, 2560
-        x = attn_out * self.attn_gate.tanh() + x
-        logger.debug(f"after attn tanh gate and residual, x shape is {x.shape}")
-
-        # x = (
-        #     self.attn(
+        #logger.debug(f"in GatedCrossAttentionBlock forward")
+        # attn_out = self.attn(
         #         x,
         #         media,
         #         media_locations=media_locations,
         #         use_cached_media=use_cached_media,
         #     )
-        #     * self.attn_gate.tanh()
-        #     + x
-        # )
+        # self.set_attn_output(attn_out)
+        #logger.debug(f"x shape is {x.shape}") # 1, 22, 2560
+        #logger.debug(f"attn_out shape is {attn_out.shape}") # 1, 22, 2560
+        # x = attn_out * self.attn_gate.tanh() + x
+        #logger.debug(f"after attn tanh gate and residual, x shape is {x.shape}")
+
+        x = (
+            self.attn(
+                x,
+                media,
+                media_locations=media_locations,
+                use_cached_media=use_cached_media,
+            )
+            * self.attn_gate.tanh()
+            + x
+        )
         x = self.ff(x) * self.ff_gate.tanh() + x
-        logger.debug(f"after ff tanh gate and residual, x shape is {x.shape}")
-        logger.debug("out GatedCrossAttentionBlock forward")
+        #logger.debug(f"after ff tanh gate and residual, x shape is {x.shape}")
+        #logger.debug("out GatedCrossAttentionBlock forward")
         return x
