@@ -1,0 +1,17 @@
+settings,shots,performance
+ground-truth, 4, 39.35
+ground-truth, 8, 40.54
+ground-truth, 16, 41.38
+ground-truth, 32, 41.866
+w/o images, 4, 38.638
+w/o images, 8, 39.45
+w/o images, 16, 40.268
+w/o images, 32, 40.85
+w/ blank, 4, 38.36
+w/ blank, 8, 39.94
+w/ blank, 16, 40.71
+w/ blank, 32, 42.365
+w/ ood, 4, 38.64
+w/ ood, 8, 39.64
+w/ ood, 16, 40.22
+w/ ood, 32, 41.35

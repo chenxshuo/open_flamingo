@@ -1,0 +1,17 @@
+setting,shot,performance
+Lang,4,42.8
+Lang,8,43.54
+Lang,16,44.01
+Lang,32,44.07
+RICES,4,42.13
+RICES,8,43.87
+RICES,16,44.90
+RICES,32,46.15
+Lang-Visual,4,43.61
+Lang-Visual,8,45.53
+Lang-Visual,16,45.01
+Lang-Visual,32,45.5
+MMICES,4,44.18
+MMICES,8,45.61
+MMICES,16,46.93
+MMICES,32,46.79

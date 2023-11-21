@@ -1,0 +1,17 @@
+settings,shots,performance
+standard, 4, 53.60
+standard, 8, 53.85
+standard, 16, 53.60
+standard, 32, 52.74
+labels for same question, 4, 52.49
+labels for same question, 8, 52.7
+labels for same question, 16, 52.06
+labels for same question, 32, 50.92
+random questions, 4,47.25
+random questions, 8, 45.94
+random questions, 16, 43.53
+random questions, 32, 39.48
+random words, 4, 3.59
+random words, 8, 1
+random words, 16, 1
+random words, 32, 1

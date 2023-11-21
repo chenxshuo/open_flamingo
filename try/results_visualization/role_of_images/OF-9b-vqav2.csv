@@ -1,0 +1,17 @@
+settings,shots,performance
+standard, 4, 53.60
+standard, 8, 53.85
+standard, 16, 53.60
+standard, 32, 52.74
+w/o images, 4, 53.61
+w/o images, 8, 54.15
+w/o images, 16, 53.36
+w/o images, 32, 53.15
+w/ blank, 4, 54.13
+w/ blank, 8, 53.71
+w/ blank, 16, 53.12
+w/ blank, 32, 52.1
+w/o query image, 4, 36.72
+w/o query image, 8, 37.11
+w/o query image, 16, 37.95
+w/o query image, 32, 37.67

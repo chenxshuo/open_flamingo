@@ -1,0 +1,10 @@
+model_size,method,performance
+3B, random, 33.49
+3B, RICES, 34.08
+3B, VLICES, 38.85
+4B, random, 33.17
+4B, RICES, 34.58
+4B, VLICES, 39.31
+9B, random, 38.28
+9B, RICES, 40.16
+9B, VLICES, 42.21

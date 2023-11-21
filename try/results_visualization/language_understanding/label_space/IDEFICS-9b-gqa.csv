@@ -1,0 +1,26 @@
+settings,shots,performance
+ground-truth, 0, 36.84
+ground-truth, 4, 39.35
+ground-truth, 8, 40.54
+ground-truth, 16, 41.38
+ground-truth, 32, 41.866
+random strings, 0, 36.84
+random strings, 4, 0
+random strings, 8, 0
+random strings, 16, 0
+random strings, 32, 0
+random words, 0, 36.84
+random words, 4, 3.14
+random words, 8,0
+random words, 16,0
+random words, 32,0
+other labels, 0, 36.84
+other labels, 4, 22.49
+other labels, 8, 9.79
+other labels, 16, 2.44
+other labels, 32,0.89
+labels for same question, 0, 36.84
+labels for same question, 4, 38.80
+labels for same question, 8, 40.07
+labels for same question, 16, 41.49
+labels for same question, 32, 41.92

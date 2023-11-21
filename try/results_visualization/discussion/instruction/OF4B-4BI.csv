@@ -1,0 +1,7 @@
+model,method,performance
+OF-4B,random,29.04
+OF-4B,RICES,29.47
+OF-4B,VLICES,33.99
+OF-4B-I,random,31.61
+OF-4B-I,RICES,32.52
+OF-4B-I,VLICES,36.08

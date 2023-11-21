@@ -1,0 +1,21 @@
+settings,shots,performance
+ground-truth, 0, 34.13
+ground-truth, 4, 36.32
+ground-truth, 8, 37.74
+ground-truth, 16, 38.28
+ground-truth, 32, 37.85
+w/o labels, 0, 34.13
+w/o labels, 4, 0
+w/o labels, 8, 0
+w/o labels, 16, 0
+w/o labels, 32, 0
+w/o questions and labels, 0, 34.13
+w/o questions and labels, 4, 0
+w/o questions and labels, 8, 0
+w/o questions and labels, 16, 0
+w/o questions and labels, 32, 0
+only labels, 0, 34.13
+only labels, 4, 28.46
+only labels, 8, 29.63
+only labels, 16, 28.45
+only labels, 32, 25.93

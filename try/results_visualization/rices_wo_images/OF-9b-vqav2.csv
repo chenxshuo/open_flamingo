@@ -1,0 +1,13 @@
+settings,shots,performance
+standard, 4, 53.60
+standard, 8, 53.85
+standard, 16, 53.60
+standard, 32, 52.74
+RICES, 4, 54.17
+RICES, 8, 54.67
+RICES, 16, 55.39
+RICES, 32, 55.77
+RICES w/o images, 4, 54.38
+RICES w/o images, 8, 55.46
+RICES w/o images, 16, 55.56
+RICES w/o images, 32, 55.71

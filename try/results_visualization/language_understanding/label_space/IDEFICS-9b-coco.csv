@@ -1,0 +1,21 @@
+settings,shots,performance
+ground-truth, 0, 46.0
+ground-truth, 4, 97.45
+ground-truth, 8, 101.85
+ground-truth, 16, 102.96
+ground-truth, 32, 105.62
+random strings, 0, 46.0
+random strings, 4,0
+random strings, 8,0
+random strings, 16,0
+random strings, 32,0
+random words, 0, 46.0
+random words, 4,0
+random words, 8,0
+random words, 16,0
+random words, 32,0
+other labels, 0, 46.0
+other labels, 4, 84.12
+other labels, 8, 64.83
+other labels, 16, 52.696
+other labels, 32, 53.38

@@ -1,0 +1,7 @@
+model,method,performance
+OF-3B,random,31.40
+OF-3B,RICES,33.97
+OF-3B,VLICES,38.00
+OF-3B-I,random,32.08
+OF-3B-I,RICES,34.52
+OF-3B-I,VLICES,39.04

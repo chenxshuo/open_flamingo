@@ -1,0 +1,17 @@
+settings,shots,performance
+ground-truth, 4,36.32
+ground-truth, 8, 37.74
+ground-truth, 16, 38.28
+ground-truth, 32, 37.85
+demo w/o images, 4, 36.86
+demo w/o images, 8, 38.13
+demo w/o images, 16, 38.40
+demo w/o images, 32, 38.23
+RICES, 4, 36.92
+RICES, 8, 38.54
+RICES, 16, 40.16
+RICES, 32, 40.35
+RICES w/o images, 4, 37.207
+RICES w/o images, 8, 39.37
+RICES w/o images, 16, 39.78
+RICES w/o images, 32, 40.05

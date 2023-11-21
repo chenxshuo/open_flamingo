@@ -1,0 +1,17 @@
+settings,shots,performance
+ground-truth, 4, 39.35
+ground-truth, 8, 40.54
+ground-truth, 16, 41.38
+ground-truth, 32, 41.866
+random strings, 4, 35.09
+random strings, 8, 35.22
+random strings, 16, 36.97
+random strings, 32, 37.33
+ood inputs, 4, 29.48
+ood inputs, 8, 27.70
+ood inputs, 16, 26.95
+ood inputs, 32, 25.53
+random questions, 4, 33.653
+random questions, 8, 33.61
+random questions, 16, 32.127
+random questions, 32, 30.00

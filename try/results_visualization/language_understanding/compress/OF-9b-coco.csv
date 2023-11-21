@@ -1,0 +1,14 @@
+settings,shots,performance
+standard, 4, 91.22
+standard, 8, 96.881
+standard, 16, 99.44
+standard, 32, 100.53
+other labels, 4, 84.96
+other labels, 8, 94.95
+other labels, 16, 97.44
+other labels, 32, 99.71
+random words, 4, 6.6
+random words, 8, 3
+random words, 16, 3
+random words, 32, 3
+
