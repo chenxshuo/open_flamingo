@@ -12,29 +12,24 @@ VQAV2_IMG_TEST_PATH="${BASE_COCO_DATA_PATH}/val2014"
 VQAV2_ANNO_TEST_PATH="${BASE_VQAv2_PATH}/karpathy_test_ann_vqav2_format.json"
 VQAV2_QUESTION_TEST_PATH="${BASE_VQAv2_PATH}/karpathy_test_ques_vqav2_format.json"
 
+
 # 9B
 CKPT_PATH="/dss/dssmcmlfs01/pn34sa/pn34sa-dss-0000/.cache/huggingface/hub/models--openflamingo--OpenFlamingo-9B-vitl-mpt7b/snapshots/e6e175603712c7007fe3b9c0d50bdcfbd83adfc2/checkpoint.pt"
 LM_MODEL="anas-awadalla/mpt-7b"
 CROSS_ATTN_EVERY_N_LAYERS=4
 
-
-export CUDA_VISIBLE_DEVICES=0,1,2,3
-
-NUM_GPUs=`echo $CUDA_VISIBLE_DEVICES | grep -P -o '\d' | wc -l`
-TIMESTAMP=`date +"%Y-%m-%d-%T"`
-MODE="gold"
-#VISUAL_MODE="no_images"
-VISUAL_DEMO_MODE=$4
-
-COMMENT="9BI-vqav2-$MODE-$VISUAL_MODE"
-
 SHOTS=$1
 MASTER_PORT=$2
 BS=$3
+HIDE_DEMO_MEDIA=$4
+HIDE_QUERY_MEDIA=$5
 
 
-
-RESULTS_FILE="results_${TIMESTAMP}_${COMMENT}.json"
+export CUDA_VISIBLE_DEVICES=2
+NUM_GPUs=`echo $CUDA_VISIBLE_DEVICES | grep -P -o '\d' | wc -l`
+TIMESTAMP=`date +"%Y-%m-%d-%T"`
+COMMENT="9B-reproduce-vqav2-shots-${SHOTS}"
+RESULTS_FILE="./results/results_${TIMESTAMP}_${COMMENT}.json"
 torchrun --nnodes=1 --nproc_per_node="$NUM_GPUs" --master_port=${MASTER_PORT} open_flamingo/eval/evaluate.py \
     --vision_encoder_path ViT-L-14 \
     --vision_encoder_pretrained openai\
@@ -48,8 +43,11 @@ torchrun --nnodes=1 --nproc_per_node="$NUM_GPUs" --master_port=${MASTER_PORT} op
     --num_trials 1 \
     --shots ${SHOTS} \
     --trial_seeds 42 \
-    --demo_mode $MODE \
-    --visual_demo_mode $VISUAL_DEMO_MODE \
+    --demo_mode  "gold" \
+    --visual_demo_mode "random" \
+    --debug \
+    --hide_demo_media_embs ${HIDE_DEMO_MEDIA} \
+    --hide_query_media_embs ${HIDE_QUERY_MEDIA} \
     --eval_vqav2 \
     --vqav2_train_image_dir_path ${VQAV2_IMG_TRAIN_PATH} \
     --vqav2_train_annotations_json_path ${VQAV2_ANNO_TRAIN_PATH} \

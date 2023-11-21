@@ -13,22 +13,17 @@ CKPT_PATH="/dss/dssmcmlfs01/pn34sa/pn34sa-dss-0000/.cache/huggingface/hub/models
 LM_MODEL="anas-awadalla/mpt-7b"
 CROSS_ATTN_EVERY_N_LAYERS=4
 
-export CUDA_VISIBLE_DEVICES=0,1,2,3
-NUM_GPUs=`echo $CUDA_VISIBLE_DEVICES | grep -P -o '\d' | wc -l`
-TIMESTAMP=`date +"%Y-%m-%d-%T"`
-
 SHOTS=$1
 MASTER_PORT=$2
 BS=$3
+HIDE_DEMO_MEDIA=$4
+HIDE_QUERY_MEDIA=$5
 
-MODE="gold"
-#VISUAL_MODE="no_images"
-VISUAL_DEMO_MODE=$4
-
-COMMENT="9B-gqa-$MODE-$VISUAL_MODE"
-
+export CUDA_VISIBLE_DEVICES=1
+NUM_GPUs=`echo $CUDA_VISIBLE_DEVICES | grep -P -o '\d' | wc -l`
+TIMESTAMP=`date +"%Y-%m-%d-%T"`
+COMMENT="9B-reproduce-gqa-shots-${SHOTS}"
 RESULTS_FILE="results_${TIMESTAMP}_${COMMENT}.json"
-
 torchrun --nnodes=1 --nproc_per_node="$NUM_GPUs" --master_port=${MASTER_PORT} open_flamingo/eval/evaluate.py \
     --vision_encoder_path ViT-L-14 \
     --vision_encoder_pretrained openai\
@@ -42,8 +37,11 @@ torchrun --nnodes=1 --nproc_per_node="$NUM_GPUs" --master_port=${MASTER_PORT} op
     --num_trials 1 \
     --shots ${SHOTS} \
     --trial_seeds 42 \
-    --demo_mode  ${MODE} \
-    --visual_demo_mode $VISUAL_DEMO_MODE \
+    --demo_mode  "gold" \
+    --visual_demo_mode "random" \
+    --debug \
+    --hide_demo_media_embs ${HIDE_DEMO_MEDIA} \
+    --hide_query_media_embs ${HIDE_QUERY_MEDIA} \
     --eval_gqa \
     --gqa_image_dir_path ${GQA_IMG} \
     --gqa_train_questions_json_path ${GQA_TRAIN_QUES_PATH} \

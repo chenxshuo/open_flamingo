@@ -18,9 +18,9 @@
 #bash open_flamingo/scripts/rice_text/run_eval_9B_hatefulmemes.sh 32 26000 8 &> ./logs/rice_text/out-rice-img-9B-hatefulmemes-shot-32.text
 
 #bash open_flamingo/scripts/rice_text/run_eval_9B_okvqa.sh 4 26000 32 &> ./logs/rice_text/out-rice-img-9B-okvqa-shot-4.text
-#bash open_flamingo/scripts/rice_text/run_eval_9B_okvqa.sh 8 26000 16 &> ./logs/rice_text/out-rice-img-9B-okvqa-shot-8.text
-#bash open_flamingo/scripts/rice_text/run_eval_9B_okvqa.sh 16 26000 8 &> ./logs/rice_text/out-rice-img-9B-okvqa-shot-16.text
-#bash open_flamingo/scripts/rice_text/run_eval_9B_okvqa.sh 32 26000 8 &> ./logs/rice_text/out-rice-img-9B-okvqa-shot-32.text
+bash open_flamingo/scripts/rice_text/run_eval_9B_okvqa.sh 8 26000 16 &> ./logs/rice_text/out-rice-img-9B-okvqa-shot-8.text
+bash open_flamingo/scripts/rice_text/run_eval_9B_okvqa.sh 16 26000 8 &> ./logs/rice_text/out-rice-img-9B-okvqa-shot-16.text
+bash open_flamingo/scripts/rice_text/run_eval_9B_okvqa.sh 32 26000 8 &> ./logs/rice_text/out-rice-img-9B-okvqa-shot-32.text
 
 #bash open_flamingo/scripts/rice_text/run_eval_9B_textvqa.sh 4 26000 32 &> ./logs/rice_text/out-rice-img-9B-textvqa-shot-4.text
 #bash open_flamingo/scripts/rice_text/run_eval_9B_textvqa.sh 8 26000 16 &> ./logs/rice_text/out-rice-img-9B-textvqa-shot-8.text

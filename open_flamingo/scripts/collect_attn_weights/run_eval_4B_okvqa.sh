@@ -9,12 +9,13 @@ OK_VQA_TRAIN_QUES_PATH="${BASE_DATA_PATH}/okvqa/OpenEnded_mscoco_train2014_quest
 OK_VQA_VAL_ANNO_PATH="${BASE_DATA_PATH}/okvqa/mscoco_val2014_annotations.json"
 OK_VQA_VAL_QUES_PATH="${BASE_DATA_PATH}/okvqa/OpenEnded_mscoco_val2014_questions.json"
 
-# 9B
-CKPT_PATH="/dss/dssmcmlfs01/pn34sa/pn34sa-dss-0000/.cache/huggingface/hub/models--openflamingo--OpenFlamingo-9B-vitl-mpt7b/snapshots/e6e175603712c7007fe3b9c0d50bdcfbd83adfc2/checkpoint.pt"
-LM_MODEL="anas-awadalla/mpt-7b"
-CROSS_ATTN_EVERY_N_LAYERS=4
+# 4B
+CKPT_PATH="/dss/dssmcmlfs01/pn34sa/pn34sa-dss-0000/.cache/huggingface/hub/models--openflamingo--OpenFlamingo-4B-vitl-rpj3b/snapshots/df8d3f7e75bcf891ce2fbf5253a12f524692d9c2/checkpoint.pt"
+LM_MODEL="togethercomputer/RedPajama-INCITE-Base-3B-v1"
+CROSS_ATTN_EVERY_N_LAYERS=2
 
-export CUDA_VISIBLE_DEVICES=0,1,2,3
+
+export CUDA_VISIBLE_DEVICES=0
 NUM_GPUs=`echo $CUDA_VISIBLE_DEVICES | grep -P -o '\d' | wc -l`
 TIMESTAMP=`date +"%Y-%m-%d-%T"`
 
@@ -26,9 +27,12 @@ BS=$3
 #MODE="fixed_pseudo_question_length"
 MODE="gold"
 #VISUAL_MODE="no_images"
-VISUAL_DEMO_MODE=$4
+VISUAL_DEMO_MODE="random"
 
-COMMENT="9B-okvqa-$MODE-$VISUAL_MODE"
+HIDE_DEMO_MEDIA=$4
+HIDE_QUERY_MEDIA=$5
+
+COMMENT="4BI-okvqa-$MODE-$VISUAL_MODE"
 
 RESULTS_FILE="results_${TIMESTAMP}_${COMMENT}.json"
 torchrun --nnodes=1 --nproc_per_node="$NUM_GPUs" --master_port=${MASTER_PORT} open_flamingo/eval/evaluate.py \
@@ -44,6 +48,9 @@ torchrun --nnodes=1 --nproc_per_node="$NUM_GPUs" --master_port=${MASTER_PORT} op
     --num_trials 1 \
     --shots ${SHOTS} \
     --trial_seeds 42 \
+    --debug \
+    --hide_demo_media_embs ${HIDE_DEMO_MEDIA} \
+    --hide_query_media_embs ${HIDE_QUERY_MEDIA} \
     --demo_mode  $MODE \
     --visual_demo_mode $VISUAL_DEMO_MODE \
     --eval_ok_vqa \
