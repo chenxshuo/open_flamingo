@@ -35,7 +35,7 @@ from rices import RICES
 from rices_text import RICESText
 from rices_cluster import RICESCluster
 from tqdm import tqdm
-
+from open_flamingo.with_without_demo_media.store_intermediate_weights import store_intermediate_weights
 
 from classification_utils import (
     IMAGENET_CLASSNAMES,
@@ -62,6 +62,23 @@ logger = logging.getLogger(__name__)
 
 parser = argparse.ArgumentParser()
 
+
+parser.add_argument(
+    "--debug",
+    action="store_true"
+)
+
+parser.add_argument(
+    "--hide_query_image_embeddings",
+    type=bool,
+    default=False,
+)
+
+parser.add_argument(
+    "--hide_demo_image_embeddings",
+    type=bool,
+    default=False,
+)
 
 parser.add_argument(
     "--store_demos_and_predictions",
@@ -114,6 +131,7 @@ parser.add_argument(
              "no_images", # no images in demo
              "blank_images", # blank images in demo
              "ood_images", # ood images in demo
+             "no_query_image",
              ]
 )
 
@@ -256,6 +274,12 @@ parser.add_argument(
     "--rices_text",
     action="store_true",
     help="Whether to use RICESText for evaluation. If False, uses random demonstrations.",
+)
+
+parser.add_argument(
+    "--rices_text_then_visual",
+    action="store_true",
+    help="Whether to use RICESTextThenVisual for evaluation. If False, uses random demonstrations.",
 )
 
 
@@ -582,11 +606,18 @@ parser.add_argument(
 
 def main():
     args, leftovers = parser.parse_known_args()
+    if args.debug:
+        logging.getLogger().setLevel(logging.DEBUG)
     module = importlib.import_module(f"open_flamingo.eval.models.{args.model}")
 
     model_args = {
         leftovers[i].lstrip("-"): leftovers[i + 1] for i in range(0, len(leftovers), 2)
     }
+    if "hide_demo_media_embs" in model_args:
+        args.hide_demo_image_embeddings = model_args["hide_demo_media_embs"]
+    if "hide_query_media_embs" in model_args:
+        args.hide_query_image_embeddings = model_args["hide_query_media_embs"]
+
     # set up distributed evaluation
     args.local_rank, args.rank, args.world_size = world_info_from_env()
     experiment_base_dir = create_experiment_dir(args, model_args)
@@ -848,6 +879,7 @@ def main():
                     cached_features=cached_features,
                     experiment_base_dir=experiment_base_dir,
                     ood_images=ood_images,
+                    debug=args.debug,
                 )
                 time_end = time.time()
                 time_cost.append(time_end - time_start)
@@ -1231,6 +1263,7 @@ def evaluate_vqa(
     cached_features=None,
     experiment_base_dir=None,
     ood_images=None,
+    debug: bool = False,
 ):
     """
     Evaluate a model on VQA datasets. Currently supports VQA v2.0, OK-VQA, VizWiz and TextVQA.
@@ -1377,6 +1410,10 @@ def evaluate_vqa(
     jpeg_val_to_info = json.load(open("generated_data_information/COCO_VAL_2014_JPEG_TO_INFO.json"))
     if args.store_demos_and_predictions:
         ques_to_demos_and_predictions = {}
+
+    if args.debug:
+        count = 0
+        logger.debug(f"length of test_dataloader: {len(test_dataloader)}")
     for batch in tqdm(
         test_dataloader,
         desc=f"Running inference {dataset_name}",
@@ -1408,7 +1445,12 @@ def evaluate_vqa(
             length_penalty=length_penalty,
         )
         # logger.critical(f"Outputs: {outputs}")
-
+        if args.debug:
+            count += 1
+            if count > 100:
+                break
+            store_intermediate_weights(eval_model, count, batch, dataset = dataset_name, hide_demo=args.hide_demo_image_embeddings,
+                                       hide_query=args.hide_query_image_embeddings)
         process_function = (
             postprocess_ok_vqa_generation
             if dataset_name == "ok_vqa"
@@ -1652,6 +1694,9 @@ def evaluate_captioning(
     predictions = defaultdict()
     if args.store_demos_and_predictions:
         ques_to_demos_and_predictions = {}
+
+    if args.debug:
+        count = 0
     for batch in tqdm(
         test_dataloader,
         desc=f"Running inference {dataset_name.upper()}",
@@ -1679,6 +1724,12 @@ def evaluate_captioning(
             num_beams=num_beams,
             length_penalty=length_penalty,
         )
+        if args.debug:
+            count += 1
+            if count > 5:
+                break
+            store_intermediate_weights(eval_model, count, batch, dataset=dataset_name, hide_demo=args.hide_demo_image_embeddings,
+                                       hide_query=args.hide_query_image_embeddings)
 
         new_predictions = [
             postprocess_captioning_generation(out).replace('"', "") for out in outputs
@@ -1768,7 +1819,7 @@ def prepare_caption_batch(
         caption_shot_results=None,
         do_reverse=False,
 ):
-    assert visual_demo_mode in ["random", "no_images", "blank_images", "ood_images"], (
+    assert visual_demo_mode in ["random", "no_images", "blank_images", "ood_images", "no_query_image"], (
         f"Unsupported visual demo mode: {visual_demo_mode}"
     )
     if args.rices:
@@ -1792,7 +1843,13 @@ def prepare_caption_batch(
             batch_demo_samples = rices_dataset.find(batch["image"], effective_num_shots)
     elif args.rices_text:
         shot_results = prepare_caption_shot_results(batch, caption_shot_results)
-        batch_demo_samples = rices_dataset.find(shot_results, effective_num_shots)
+        if args.rices_text_then_visual:
+            batch_demo_samples = rices_dataset.find_by_ranking_similar_images(
+                batch_image=batch["image"], batch_text=shot_results,
+                num_examples=effective_num_shots, do_reverse=do_reverse
+            )
+        else:
+            batch_demo_samples = rices_dataset.find(shot_results, effective_num_shots)
         # for i in range(len(batch["image"])):
         #     for sample in batch_demo_samples[i]:
         #         logger.critical(f"batch[i]: {batch['image_id'][i]} caption {batch['caption'][i]};"
@@ -1841,6 +1898,7 @@ def prepare_caption_batch(
                     for x in batch_demo_samples[i]
                 ]
             )
+
             context_text = context_text.replace("<image>", "")
             batch_text.append(context_text + eval_model.get_caption_prompt())
 
@@ -1877,8 +1935,25 @@ def prepare_caption_batch(
                 ]
             )
             batch_text.append(context_text + eval_model.get_caption_prompt())
+        return batch_images, batch_text, batch_demo_samples
+    elif visual_demo_mode == "no_query_image":
+        assert num_shots > 0
+        batch_images = []
+        batch_text = []
+        for i in range(len(batch["image"])):
+            context_images = [x["image"] for x in batch_demo_samples[i]]
+            batch_images.append(context_images)
+            context_text = "".join(
+                [
+                    eval_model.get_caption_prompt(caption=x["caption"].strip()) + "\n"
+                    for x in batch_demo_samples[i]
+                ]
+            )
+            # logger.critical(f"context_text: {context_text} do task recognition: {demo_mode}")
+            batch_text.append(context_text + eval_model.get_caption_prompt().replace("<image>", ""))
 
         return batch_images, batch_text, batch_demo_samples
+
 def prepare_caption_shot_results(batch, caption_shot_results):
     """
     Return prepared caption results for RICEText retrieval
@@ -1912,7 +1987,7 @@ def prepare_vqa_batch(
         ood_images=None,
         do_reverse=False,
 ):
-    assert visual_demo_mode in ["random", "same_category", "different_number_of_objects", "no_images", "blank_images", "ood_images"], (
+    assert visual_demo_mode in ["random", "same_category", "different_number_of_objects", "no_images", "blank_images", "ood_images", "no_query_image"], (
         f"Unsupported visual demo mode: {visual_demo_mode}"
     )
     if args.rices:
@@ -1969,7 +2044,15 @@ def prepare_vqa_batch(
         else:
             assert NotImplementedError
     elif args.rices_text:
-        batch_demo_samples = rices_dataset.find(batch["question"], effective_num_shots)
+        if args.rices_text_then_visual:
+            batch_demo_samples = rices_dataset.find_by_ranking_similar_images(
+                batch_image=batch["image"], batch_text=batch["question"],
+                num_examples=effective_num_shots, do_reverse=do_reverse
+            )
+            # logger.info(f"batch_demo_samples: {batch_demo_samples}")
+            # assert False
+        else:
+            batch_demo_samples = rices_dataset.find(batch["question"], effective_num_shots)
     else:
         batch_demo_samples = utils.sample_batch_demos_from_query_set(
             query_set, effective_num_shots, len(batch["image"])
@@ -2181,6 +2264,34 @@ def prepare_vqa_batch(
 
             batch_text.append(
                 context_text + eval_model.get_vqa_prompt(question=batch["question"][i])
+            )
+        # logger.critical(f"Batch text: {batch_text}")
+        return batch_images, batch_text, batch_demo_samples
+    elif visual_demo_mode == "no_query_image":
+        batch_images, batch_text = [], []
+        for i in range(len(batch["image"])):
+            if num_shots > 0:
+                context_images = [x["image"] for x in batch_demo_samples[i]]
+            else:
+                context_images = []
+            batch_images.append(context_images)
+
+            context_text = "".join(
+                [
+                    eval_model.get_vqa_prompt(
+                        question=x["question"], answer=x["answers"][0]
+                    )
+                    + "\n"
+                    for x in batch_demo_samples[i]
+                ]
+            )
+
+            # Keep the text but remove the image tags for the zero-shot case
+            if num_shots == 0:
+                context_text = context_text.replace("<image>", "")
+
+            batch_text.append(
+                context_text + eval_model.get_vqa_prompt(question=batch["question"][i]).replace("<image>", "")
             )
         # logger.critical(f"Batch text: {batch_text}")
         return batch_images, batch_text, batch_demo_samples
