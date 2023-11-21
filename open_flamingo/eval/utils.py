@@ -111,16 +111,28 @@ def create_experiment_dir(args, model_args):
                     f"{experiment_time}",
                 )
     elif args.rices_text:
-        experiment_base_dir = os.path.join(
-            BASE_PATH,
-            f"{model}",
-            f"rices_text",
-            f"demo_mode_{demo_mode}",
-            f"visual_demo_mode_{visual_demo_mode}",
-            f"{evaluate_tasks}",
-            f"shot_{shot}",
-            f"{experiment_time}",
-        )
+        if args.rices_text_then_visual:
+            experiment_base_dir = os.path.join(
+                BASE_PATH,
+                f"{model}",
+                f"rices_text_then_visual",
+                f"demo_mode_{demo_mode}",
+                f"visual_demo_mode_{visual_demo_mode}",
+                f"{evaluate_tasks}",
+                f"shot_{shot}",
+                f"{experiment_time}",
+            )
+        else:
+            experiment_base_dir = os.path.join(
+                BASE_PATH,
+                f"{model}",
+                f"rices_text",
+                f"demo_mode_{demo_mode}",
+                f"visual_demo_mode_{visual_demo_mode}",
+                f"{evaluate_tasks}",
+                f"shot_{shot}",
+                f"{experiment_time}",
+            )
     else:
         experiment_base_dir = os.path.join(
             BASE_PATH,
@@ -192,6 +204,13 @@ def prepare_eval_samples(test_dataset, num_samples, batch_size):
     """
     Subset the test dataset and return a DataLoader.
     """
+    # if num_samples == len(test_dataset):
+    #     loader = torch.utils.data.DataLoader(
+    #         test_dataset,
+    #         batch_size=batch_size,
+    #         collate_fn=custom_collate_fn,
+    #     )
+    #     return loader
     random_indices = np.random.choice(len(test_dataset), num_samples, replace=False)
     dataset = torch.utils.data.Subset(test_dataset, random_indices)
     sampler = torch.utils.data.distributed.DistributedSampler(dataset)
