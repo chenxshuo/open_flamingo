@@ -3,11 +3,15 @@ from typing import List, Dict
 from PIL import Image
 import torch
 from einops import repeat
+import logging
 
 from open_flamingo.eval.eval_model import BaseEvalModel
 from open_flamingo.src.factory import create_model_and_transforms
 from open_flamingo.eval.utils import unwrap_model, get_autocast, get_cast_dtype
 from transformers.modeling_outputs import CausalLMOutputWithPast
+
+
+logger = logging.getLogger(__name__)
 
 
 class EvalModel(BaseEvalModel):
@@ -46,6 +50,8 @@ class EvalModel(BaseEvalModel):
             model_args["lm_path"],
             model_args["lm_tokenizer_path"],
             cross_attn_every_n_layers=int(model_args["cross_attn_every_n_layers"]),
+            hide_demo_media_embs=model_args["hide_demo_media_embs"]=='True' if "hide_demo_media_embs" in model_args else False,
+            hide_query_media_embs=model_args["hide_query_media_embs"]=='True' if "hide_query_media_embs" in model_args else False,
         )
         checkpoint = torch.load(model_args["checkpoint_path"], map_location=self.device)
         if "model_state_dict" in checkpoint:
@@ -134,6 +140,10 @@ class EvalModel(BaseEvalModel):
         """
         batch_images = self._prepare_images(batch_images)
         input_ids, attention_mask = self._prepare_text(batch_text)
+
+        # logger.debug(f"in get_outputs: batch_images shape: {batch_images.shape}")
+        # logger.debug(f"in get_outputs: input_ids shape: {input_ids.shape}")
+        # logger.debug(f"in get_outputs: attention_mask shape: {attention_mask.shape}")
 
         with torch.inference_mode():
             with self.autocast():
