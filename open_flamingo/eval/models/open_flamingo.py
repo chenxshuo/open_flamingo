@@ -52,6 +52,7 @@ class EvalModel(BaseEvalModel):
             cross_attn_every_n_layers=int(model_args["cross_attn_every_n_layers"]),
             hide_demo_media_embs=model_args["hide_demo_media_embs"]=='True' if "hide_demo_media_embs" in model_args else False,
             hide_query_media_embs=model_args["hide_query_media_embs"]=='True' if "hide_query_media_embs" in model_args else False,
+            only_attend_immediate_media=model_args["only_attend_immediate_media"] if "only_attend_immediate_media" in model_args else True,
         )
         checkpoint = torch.load(model_args["checkpoint_path"], map_location=self.device)
         if "model_state_dict" in checkpoint:

@@ -27,6 +27,7 @@ class Flamingo(nn.Module):
         vis_dim: int,
         cross_attn_every_n_layers: int = 1,
         gradient_checkpointing: bool = False,
+        only_attend_immediate_media=True,
         hide_demo_media_embs: bool = False,
         hide_query_media_embs: bool = False,
     ):
@@ -58,6 +59,7 @@ class Flamingo(nn.Module):
             vis_hidden_size=self.vis_dim,
             cross_attn_every_n_layers=cross_attn_every_n_layers,
             gradient_checkpointing=gradient_checkpointing,
+            only_attend_immediate_media=only_attend_immediate_media,
             hide_demo_media_embs=hide_demo_media_embs,
             hide_query_media_embs=hide_query_media_embs,
         )
