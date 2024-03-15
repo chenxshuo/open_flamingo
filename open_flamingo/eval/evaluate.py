@@ -603,6 +603,12 @@ parser.add_argument(
     help="Don't set device index from local rank (when CUDA_VISIBLE_DEVICES restricted to one per proc).",
 )
 
+parser.add_argument(
+    "--attend_all_images",
+    action="store_true",
+    help="Whether to attend to all images in the context.",
+)
+
 
 def main():
     args, leftovers = parser.parse_known_args()
@@ -617,6 +623,8 @@ def main():
         args.hide_demo_image_embeddings = model_args["hide_demo_media_embs"]
     if "hide_query_media_embs" in model_args:
         args.hide_query_image_embeddings = model_args["hide_query_media_embs"]
+    if args.attend_all_images:
+        model_args.update({"only_attend_immediate_media": False})
 
     # set up distributed evaluation
     args.local_rank, args.rank, args.world_size = world_info_from_env()
