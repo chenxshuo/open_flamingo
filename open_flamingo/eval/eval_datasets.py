@@ -94,7 +94,7 @@ class CaptionDataset(Dataset):
             image = Image.open(
                 os.path.join(
                     self.image_train_dir_path, self.annotations[idx]["filename"]
-                )
+                ).convert("RGB")
                 if self.annotations[idx]["filepath"] == "train2014"
                 else os.path.join(
                     self.image_val_dir_path, self.annotations[idx]["filename"]
@@ -105,7 +105,7 @@ class CaptionDataset(Dataset):
                 os.path.join(
                     self.image_train_dir_path, self.annotations[idx]["filename"]
                 )
-            )
+            ).convert("RGB")
         image.load()
         caption = self.annotations[idx]["sentences"][0]["raw"]
         return {
@@ -204,7 +204,7 @@ class VQADataset(Dataset):
     def __getitem__(self, idx):
         question = self.questions[idx]
         img_path = self.get_img_path(question)
-        image = Image.open(img_path)
+        image = Image.open(img_path).convert("RGB")
         image.load()
         results = {
             "image_file_name": img_path.split("/")[-1],
@@ -450,7 +450,7 @@ class HatefulMemesDataset(Dataset):
     def __getitem__(self, idx):
         annotation = self.annotations[idx]
         img_path = os.path.join(self.image_dir_path, annotation["img"].split("/")[-1])
-        image = Image.open(img_path)
+        image = Image.open(img_path).convert("RGB")
         image.load()
         return {
             "id": annotation["id"],
