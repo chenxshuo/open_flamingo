@@ -1,0 +1,13 @@
+settings,shots,performance
+random, 4, 53.60
+random, 8, 53.85
+random, 16, 53.60
+random, 32, 52.74
+RICES, 4, 54.17
+RICES, 8, 54.67
+RICES, 16, 55.39
+RICES, 32, 55.77
+text, 4, 47.71
+text, 8, 47.46
+text, 16, 47.49
+text, 32, 47.83

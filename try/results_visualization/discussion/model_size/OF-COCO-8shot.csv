@@ -1,0 +1,10 @@
+model_size,method,performance
+3B, random,82.01
+3B, RICES,97.38
+3B, MMICES,103.42
+4B, random,90.48
+4B, RICES,96.60
+4B, MMICES,102.56
+9B, random,96.81
+9B, RICES,99.74
+9B, MMICES,104.96
