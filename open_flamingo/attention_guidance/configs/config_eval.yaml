@@ -1,0 +1,52 @@
+defaults:
+  - model: of-9b
+  - evaluate_dataset: imagenet-v2
+  - load_from: baseline-class-32-m4-t3
+  - override hydra/job_logging: custom
+  - override hydra/hydra_logging: colorlog
+  - _self_
+
+hydra:
+  run:
+    dir: ./outputs/${model.alias}/eval/${evaluate_dataset.name}/class_${load_from.number_of_classes}/rob_prompt_${load_from.robust_prompting.use_robust_prompting}/novel_class_${eval_novel_classes}/media_prompt_${load_from.number_of_media_prompts}_text_prompt_${load_from.number_of_text_prompts_per_media}/${now:%Y-%m-%d}/${now:%H-%M-%S}-${generate_job_id:}
+
+  job_logging:
+    handlers:
+      file:
+        filename: ${hydra.run.dir}/log.log
+
+data_base: /dss/dssmcmlfs01/pn34sa/pn34sa-dss-0000/robustness/datasets
+
+device: cuda:0
+batch_size: 32
+eval_novel_classes: False
+evaluation_mode: classification # or 'generation'
+only_load_and_eval: True
+
+
+icl:
+  do_icl: False
+  num_shots: 4
+  icl_insertion_position: demo-prompting-query # or 'prompting-demo-query'
+  rices:
+    do_rices: False
+    rices_vision_encoder: ViT-L-14
+    rices_vision_encoder_pretrained: openai
+    rices_find_by_ranking_similar_text_similar_in_top_k: 200
+
+#evaluate_dataset:
+#  normal:
+#    - imagenet-1k
+#    - imagenet-a
+#    - imagenet-r
+#    - imagenet-v2
+#    - imagenet-s
+#    - imagenet-c
+#  novel:
+#    - imagenet-1k-novel
+#    - imagenet-a-novel
+#    - imagenet-r-novel
+#    - imagenet-v2-novel
+#    - imagenet-s-novel
+#    - imagenet-c-novel
+

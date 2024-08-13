@@ -30,6 +30,7 @@ class Flamingo(nn.Module):
         only_attend_immediate_media=True,
         hide_demo_media_embs: bool = False,
         hide_query_media_embs: bool = False,
+        prompt_media_id=None
     ):
         """
         Args:
@@ -62,6 +63,7 @@ class Flamingo(nn.Module):
             only_attend_immediate_media=only_attend_immediate_media,
             hide_demo_media_embs=hide_demo_media_embs,
             hide_query_media_embs=hide_query_media_embs,
+            prompt_media_id=prompt_media_id,
         )
         self._use_gradient_checkpointing = gradient_checkpointing
         self.perceiver._use_gradient_checkpointing = gradient_checkpointing
@@ -117,7 +119,7 @@ class Flamingo(nn.Module):
             # Case: do not use caching (i.e. this is a standard forward pass);
             self._encode_vision_x(vision_x=vision_x)
             self._condition_media_locations(input_ids=lang_x)
-
+        # logger.info(f"Inside Flamingo forward function")
         output = self.lang_encoder(
             input_ids=lang_x,
             attention_mask=attention_mask,
@@ -202,17 +204,18 @@ class Flamingo(nn.Module):
         assert vision_x.ndim == 6, "vision_x should be of shape (b, T_img, F, C, H, W)"
         b, T, F = vision_x.shape[:3]
         assert F == 1, "Only single frame supported"
-        #logger.debug(f"in _encode_vision_x function")
-        #logger.debug(f"before rearrange vision_x shape is {vision_x.shape}")
+        logger.debug(f"in _encode_vision_x function")
+        logger.debug(f"before rearrange vision_x shape is {vision_x.shape}")
         vision_x = rearrange(vision_x, "b T F c h w -> (b T F) c h w")
-        #logger.debug(f"after rearrange vision_x shape is {vision_x.shape}")
+        logger.debug(f"after rearrange vision_x shape is {vision_x.shape}")
         with torch.no_grad(): # that is why I did not get gradients in the vision encoder
             vision_x = self.vision_encoder(vision_x)[1]
-        #logger.debug(f"after vision encoder vision_x shape is {vision_x.shape}")
+        logger.debug(f"after vision encoder vision_x shape is {vision_x.shape}")
         vision_x = rearrange(vision_x, "(b T F) v d -> b T F v d", b=b, T=T, F=F)
-        #logger.debug(f"after rearrange vision_x shape is {vision_x.shape}")
+        logger.debug(f"after rearrange vision_x shape is {vision_x.shape}")
         vision_x = self.perceiver(vision_x)
-        #logger.debug(f"after perceiver vision_x shape is {vision_x.shape}")
+        logger.debug(f"after perceiver vision_x shape is {vision_x.shape}")
+        # vision_x shape [batch, number of images, 64, 1024]
 
         for layer in self.lang_encoder._get_decoder_layers():
             layer.condition_vis_x(vision_x)
@@ -326,7 +329,8 @@ class Flamingo(nn.Module):
                 shape (B, T_txt)
         """
         media_locations = input_ids == self.media_token_id
-
+        #logger.debug(f"media locations: {media_locations}")
+        # media_location: True if the token is <image>, False otherwise
         for layer in self.lang_encoder._get_decoder_layers():
             layer.condition_media_locations(media_locations)
 

@@ -1,0 +1,10 @@
+robust_prompting:
+  use_robust_prompting: False
+  number_of_robust_prompts: 0
+  robust_scales:
+
+number_of_classes: 8
+number_of_media_prompts: 4
+number_of_text_prompts_per_media: 3
+
+dir: ./outputs/of-9b/train/imagenet-1k/class_8/rob_prompt_False/media_prompt_4_text_prompt_3/2024-08-12/22-04-00-beneficial-Joslyn/epoch_5_accuracy_0.995

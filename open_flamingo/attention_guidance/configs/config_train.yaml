@@ -1,0 +1,47 @@
+defaults:
+  - model: of-9b
+#  - robust_prompting: robust-sit2
+  - robust_prompting: no-robust
+  - evaluate_dataset: imagenet-1k
+  - override hydra/job_logging: custom
+  - override hydra/hydra_logging: colorlog
+  - _self_
+
+hydra:
+  run:
+    dir: ./outputs/${model.alias}/train/${train_dataset.name}/class_${number_of_classes}/rob_prompt_${robust_prompting.use_robust_prompting}/media_prompt_${number_of_media_prompts}_text_prompt_${number_of_text_prompts_per_media}/${now:%Y-%m-%d}/${now:%H-%M-%S}-${generate_job_id:}
+
+  job_logging:
+    handlers:
+      file:
+        filename: ${hydra.run.dir}/log.log
+
+batch_size: 16
+device: cuda:0
+number_of_classes: 32
+number_of_media_prompts: 4
+number_of_text_prompts_per_media: 3
+epochs: 50
+
+
+eval_novel_classes: False
+lr: 0.1
+data_base: /dss/dssmcmlfs01/pn34sa/pn34sa-dss-0000/robustness/datasets
+train_dataset:
+  num_workers: 16
+  name: imagenet-1k
+  image_dir: ${data_base}/imagenet/subset-32-classes/train
+  annotation_path: ${data_base}/imagenet/imagenet_annotation_train_${number_of_classes}_classes_5_per_class.json
+
+evaluation_mode: classification # or 'generation'
+
+icl:
+  do_icl: False
+  num_shots: 4
+  icl_insertion_position: demo-prompting-query # or 'prompting-demo-query'
+  rices:
+    do_rices: False
+    cached_features: ''
+    rices_vision_encoder: ViT-L-14
+    rices_vision_encoder_pretrained: openai
+    rices_find_by_ranking_similar_text_similar_in_top_k: 200

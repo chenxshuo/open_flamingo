@@ -160,6 +160,9 @@ def create_model_and_transforms_w_prompt(
         use_robust_prompting: bool = False,
         number_of_robust_media: int = -1,
         device=torch.device("cuda"),
+        do_icl=None,
+        num_shots=None,
+        icl_insertion_position=None,
         **flamingo_kwargs,
 ):
     """
@@ -186,7 +189,7 @@ def create_model_and_transforms_w_prompt(
         pretrained=clip_vision_encoder_pretrained,
         cache_dir=cache_dir,
     )
-    logger.info(f"image_processor: {image_processor}")
+    # logger.info(f"image_processor: {image_processor}")
 
     # set the vision encoder to output the visual features
     vision_encoder.visual.output_tokens = True
@@ -201,6 +204,10 @@ def create_model_and_transforms_w_prompt(
     text_tokenizer.add_special_tokens(
         {"additional_special_tokens": ["<|endofchunk|>", "<image>"]}
     )
+    text_tokenizer.add_special_tokens(
+        {"additional_special_tokens": ["<SoftImage>", "<SoftText>"]}
+    )
+
     if text_tokenizer.pad_token is None:
         # Issue: GPT models don't have a pad token, which we use to
         # modify labels for the loss.
@@ -239,8 +246,10 @@ def create_model_and_transforms_w_prompt(
         lang_encoder,
         text_tokenizer.encode("<|endofchunk|>")[-1],
         text_tokenizer.encode("<image>")[-1],
-        prompt_text_id=text_tokenizer.encode("<PAD>")[-1],
-        prompt_media_id=text_tokenizer.encode("<image>")[-1],
+        prompt_text_id=text_tokenizer.encode("<SoftText>")[-1],
+        prompt_media_id=text_tokenizer.encode("<SoftImage>")[-1],
+        # prompt_text_id=text_tokenizer.encode("<PAD>")[-1],
+        # prompt_media_id=text_tokenizer.encode("<image>")[-1],
         vis_dim=open_clip.get_model_config(clip_vision_encoder_path)["vision_cfg"][
             "width"
         ],
@@ -253,6 +262,9 @@ def create_model_and_transforms_w_prompt(
         number_of_robust_media=number_of_robust_media,
         device=device,
         tokenizer=text_tokenizer,
+        do_icl=do_icl,
+        num_shots=num_shots,
+        icl_insertion_position=icl_insertion_position,
         **flamingo_kwargs,
     )
 

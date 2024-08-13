@@ -1,0 +1,7 @@
+use_robust_prompting: True
+plan: scales
+robust_scales:
+  - 224
+  - 112
+  - 150
+number_of_robust_prompts: 3

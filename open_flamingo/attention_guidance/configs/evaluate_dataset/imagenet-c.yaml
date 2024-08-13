@@ -1,0 +1,8 @@
+name: imagenet-c
+num_workers: 16
+base:
+  image_dir_path: ${data_base}/imagenet-C/imagenet-C-severity-5
+  annotation_path: ${data_base}/imagenet-C/imagenet_c_annotation_val_${number_of_classes}_classes.json
+novel:
+  image_dir_path: /dss/dssmcmlfs01/pn34sa/pn34sa-dss-0000/robustness/datasets/imagenet-C/novel-8-classes-imagenet-C-severity-5
+  annotation_path: /dss/dssmcmlfs01/pn34sa/pn34sa-dss-0000/robustness/datasets/imagenet-C/imagenet_c_novel_classes_val.json

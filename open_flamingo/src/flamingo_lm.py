@@ -1,6 +1,8 @@
+import torch
 import torch.nn as nn
 from .helpers import GatedCrossAttentionBlock
 from .utils import getattr_recursive, setattr_recursive
+from einops import repeat
 
 import logging
 
@@ -10,7 +12,7 @@ class FlamingoLayer(nn.Module):
     """
     FlamingoLayer is a wrapper around the GatedCrossAttentionBlock and DecoderLayer.
     """
-
+    LAYER_COUNTER = 0
     def __init__(
         self, gated_cross_attn_layer, decoder_layer, gradient_checkpointing=False
     ):
@@ -19,11 +21,21 @@ class FlamingoLayer(nn.Module):
         self.decoder_layer = decoder_layer
         self.vis_x = None
         self.media_locations = None
+        self.text_prompt_locations = None
         if self.gated_cross_attn_layer is not None:
             self.gated_cross_attn_layer._use_gradient_checkpointing = (
                 gradient_checkpointing
             )
         self.decoder_layer._use_gradient_checkpointing = gradient_checkpointing
+
+        self.using_soft_prompt = False
+        self.soft_prompt_text = None
+        self.layer_counter = FlamingoLayer.LAYER_COUNTER
+        FlamingoLayer.LAYER_COUNTER += 1
+
+    def set_using_soft_prompt(self, using_soft_prompt, soft_prompt_text):
+        self.using_soft_prompt = using_soft_prompt
+        self.soft_prompt_text = soft_prompt_text
 
     def is_conditioned(self) -> bool:
         """Check whether the layer is conditioned."""
@@ -34,10 +46,27 @@ class FlamingoLayer(nn.Module):
         self.vis_x = vis_x
 
     def condition_media_locations(self, media_locations):
+        # if media_locations is not None:
+        #     logger.debug(f"set media locations for layer {self.layer_counter}")
+        #     logger.debug(f"media_locations: {media_locations.shape}")
+        #     logger.debug(f"media_locations[0]: {media_locations[0]}")
         self.media_locations = media_locations
+
+    def condition_text_prompt_locations(self, text_prompt_locations):
+        self.text_prompt_locations = text_prompt_locations
 
     def condition_use_cached_media(self, use_cached_media):
         self.use_cached_media = use_cached_media
+
+
+    def set_use_robust_prompting(self, use_robust_prompt):
+        if self.gated_cross_attn_layer is not None:
+            self.gated_cross_attn_layer.set_use_robust_prompting(use_robust_prompt)
+
+
+    def set_number_of_robust_media(self, number_of_robust_media):
+        if self.gated_cross_attn_layer is not None:
+            self.gated_cross_attn_layer.set_number_of_robust_media(number_of_robust_media)
 
     def forward(
         self,
@@ -45,6 +74,36 @@ class FlamingoLayer(nn.Module):
         attention_mask=None,
         **decoder_layer_kwargs,
     ):
+        # import ipdb; ipdb.set_trace()
+        if self.using_soft_prompt:
+            # the model layer just after the embedding layer
+            # need to insert the soft text prompt here
+            # logger.debug(f"adding text soft prompt embedding at layer {self.layer_counter}")
+            assert self.soft_prompt_text is not None
+            assert self.text_prompt_locations is not None
+            assert self.layer_counter == 0
+            if self.text_prompt_locations.shape[0] != lang_x.shape[0]:
+                # import ipdb; ipdb.set_trace()
+                # if batch size unmatches, reshape the text prompt location
+                self.text_prompt_locations = repeat(
+                    torch.unsqueeze(self.text_prompt_locations[0], 0),
+                    "1 i -> (1 n) i", n=lang_x.shape[0]
+                )
+            self.soft_prompt_text = self.soft_prompt_text.to(lang_x.device)
+            if lang_x.shape[1] > self.text_prompt_locations.shape[1]:
+                # import ipdb; ipdb.set_trace()
+                tmp = torch.zeros(lang_x.shape[:2])
+                tmp[:, :self.text_prompt_locations.shape[1]] = self.text_prompt_locations[:]
+                self.text_prompt_locations = tmp.bool()
+            elif lang_x.shape[1] < self.text_prompt_locations.shape[1]:
+                # import ipdb; ipdb.set_trace()
+                tmp = torch.zeros(lang_x.shape[:2])
+                tmp[:, :lang_x.shape[1]] = self.text_prompt_locations[:, :lang_x.shape[1]]
+                self.text_prompt_locations = tmp.bool()
+            for i in range(lang_x.shape[0]):
+                lang_x[i][self.text_prompt_locations[i]] = self.soft_prompt_text
+            # lang_x[self.text_prompt_locations] = self.soft_prompt_text
+
         # Cross attention
         if self.gated_cross_attn_layer is not None:
             if self.vis_x is None:
@@ -93,6 +152,7 @@ class FlamingoLMMixin(nn.Module):
         only_attend_immediate_media=True,
         hide_demo_media_embs=False,
         hide_query_media_embs=False,
+        prompt_media_id=None,
     ):
         """
         Initialize Flamingo by adding a new gated cross attn to the decoder. Store the media token id for computing the media locations.
@@ -100,6 +160,7 @@ class FlamingoLMMixin(nn.Module):
         # logger.info(f"only_attend_immediate_media: {only_attend_immediate_media}")
         # assert False
         self.old_decoder_blocks = self._get_decoder_layers()
+        self.prompt_media_id = prompt_media_id
         self.gated_cross_attn_layers = nn.ModuleList(
             [
                 GatedCrossAttentionBlock(
@@ -141,12 +202,17 @@ class FlamingoLMMixin(nn.Module):
 
     def forward(self, input_ids, attention_mask, **kwargs):
         """Condition the Flamingo layers on the media locations before forward()"""
+        # the forward of MosaicGPT (OF-3B)
+
         if not self.initialized_flamingo:
             raise ValueError(
                 "Flamingo layers are not initialized. Please call `init_flamingo` first."
             )
-
         media_locations = input_ids == self.media_token_id
+        if self.prompt_media_id is not None:
+            prompt_media_locations = input_ids == self.prompt_media_id
+            media_locations = media_locations | prompt_media_locations
+
 
         # if there are media already cached and we're generating and there are no media tokens in the input,
         # we'll assume that ALL input tokens should attend to the last previous media that is cached.
