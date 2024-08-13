@@ -11,7 +11,7 @@ import torch
 
 logging.basicConfig(
     level=logging.DEBUG,
-    format='[%(levelname)s:%(asctime)s:%(name)s:%(filename)s:%(lineno)d]\t %(message)s',
+    format="[%(levelname)s:%(asctime)s:%(name)s:%(filename)s:%(lineno)d]\t %(message)s",
 )
 
 logger = logging.getLogger(__name__)
@@ -29,35 +29,36 @@ device = torch.device("cuda:0")
 MODEL_DICT_9B = {
     "language": "anas-awadalla/mpt-7b",
     "flamingo": "openflamingo/OpenFlamingo-9B-vitl-mpt7b",
-    "cross_attn_every_n_layers": 4
+    "cross_attn_every_n_layers": 4,
 }
 
 MODEL_DICT_4BI = {
     "language": "togethercomputer/RedPajama-INCITE-Instruct-3B-v1",
     "flamingo": "openflamingo/OpenFlamingo-4B-vitl-rpj3b-langinstruct",
-    "cross_attn_every_n_layers": 2
+    "cross_attn_every_n_layers": 2,
 }
 
 MODEL_DICT_4B = {
     "language": "togethercomputer/RedPajama-INCITE-Base-3B-v1",
     "flamingo": "openflamingo/OpenFlamingo-4B-vitl-rpj3b",
-    "cross_attn_every_n_layers": 2
+    "cross_attn_every_n_layers": 2,
 }
 
 
 MODEL_DICT_3BI = {
     "language": "anas-awadalla/mpt-1b-redpajama-200b-dolly",
     "flamingo": "openflamingo/OpenFlamingo-3B-vitl-mpt1b-langinstruct",
-    "cross_attn_every_n_layers": 1
+    "cross_attn_every_n_layers": 1,
 }
 
 MODEL_DICT_3B = {
     "language": "anas-awadalla/mpt-1b-redpajama-200b",
     "flamingo": "openflamingo/OpenFlamingo-3B-vitl-mpt1b",
-    "cross_attn_every_n_layers": 1
+    "cross_attn_every_n_layers": 1,
+    "checkpoint_path": f"{HF_HOME}/hub/models--openflamingo--OpenFlamingo-3B-vitl-mpt1b/snapshots/ed3a0c3190b2fc2d1c39630738896d4e73ce1bbc/checkpoint.pt",
 }
 
-MODEL = MODEL_DICT_9B
+MODEL = MODEL_DICT_3B
 
 model, image_processor, tokenizer = create_model_and_transforms(
     clip_vision_encoder_path="ViT-L-14",
@@ -68,12 +69,19 @@ model, image_processor, tokenizer = create_model_and_transforms(
 )
 
 # grab model checkpoint from huggingface hub
-huggingface_hub.login(
-    token="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"
-)
-checkpoint_path = hf_hub_download(MODEL["flamingo"], "checkpoint.pt")
-model.load_state_dict(torch.load(checkpoint_path), strict=False)
+# huggingface_hub.login(token="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")
+# checkpoint_path = hf_hub_download(MODEL["flamingo"], "checkpoint.pt")
+model.load_state_dict(torch.load(MODEL["checkpoint_path"]), strict=False)
+torch.save(model.state_dict(), "checkpoint_check_save.pt")
+
 model.to(device)
+
+assert False
+
+import ipdb
+
+ipdb.set_trace()
+
 from PIL import Image
 import requests
 
@@ -95,8 +103,7 @@ demo_image_one = Image.open(
 
 query_image = Image.open(
     requests.get(
-        "http://images.cocodataset.org/test-stuff2017/000000028352.jpg",
-        stream=True
+        "http://images.cocodataset.org/test-stuff2017/000000028352.jpg", stream=True
     ).raw
 )
 
@@ -110,7 +117,10 @@ Details: For OpenFlamingo, we expect the image to be a torch tensor of shape
 """
 
 BS = 1
-vision_x = [image_processor(demo_image_one).unsqueeze(0), image_processor(query_image).unsqueeze(0)]
+vision_x = [
+    image_processor(demo_image_one).unsqueeze(0),
+    image_processor(query_image).unsqueeze(0),
+]
 vision_x = torch.cat(vision_x, dim=0)
 vision_x = vision_x.unsqueeze(1).unsqueeze(0)
 # duplicate along the batch dimension
@@ -122,7 +132,7 @@ Details: In the text we expect an <image> special token to indicate where an ima
  We also expect an <|endofchunk|> special token to indicate the end of the text 
  portion associated with an image.
 """
-tokenizer.padding_side = "left" # For generation padding tokens should be on the left
+tokenizer.padding_side = "left"  # For generation padding tokens should be on the left
 lang_x = tokenizer(
     ["<image>Output: dog<|endofchunk|><image>Output:"],
     return_tensors="pt",
@@ -146,7 +156,9 @@ logger.info(f"attention_mask shape: {lang_x['attention_mask'].shape}")
 logger.info(f"attention_mask: {lang_x['attention_mask']}")
 
 for i in range(len(lang_x["input_ids"][0])):
-    logger.info(f"lang_x input tokens {i} with id {lang_x['input_ids'][0][i]}:|{tokenizer.decode(lang_x['input_ids'][0][i])}|")
+    logger.info(
+        f"lang_x input tokens {i} with id {lang_x['input_ids'][0][i]}:|{tokenizer.decode(lang_x['input_ids'][0][i])}|"
+    )
 
 
 forward_result = model.forward(

@@ -1,8 +1,8 @@
 settings,shots,performance
-standard, 4, 54.9
-standard, 8, 56.16
-standard, 16, 56.93
-standard, 32, 57.21
+random, 4, 54.9
+random, 8, 56.16
+random, 16, 56.93
+random, 32, 57.21
 random w/o images, 4, 53.66
 random w/o images, 8, 54.57
 random w/o images, 16, 55.41

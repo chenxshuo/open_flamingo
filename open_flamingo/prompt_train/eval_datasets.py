@@ -13,9 +13,6 @@ import logging
 from PIL import Image
 import torch
 from torch.utils.data import Dataset
-from torchvision.datasets import ImageFolder
-from random_word import RandomWords
-from datasets import load_dataset
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +27,7 @@ def custom_collate_fn(batch):
     return collated_batch
 
 
-def prepare_train_loader(train_dataset, batch_size, num_workers, shuffle=True):
+def prepare_loader(train_dataset, batch_size, num_workers, shuffle=True):
     """
     Prepare a DataLoader for training.
     """
@@ -59,6 +56,7 @@ class ImageNet1KDataset(Dataset):
 
     def __len__(self):
         return len(self.annotations)
+
     def __getitem__(self, idx):
         annotation = self.annotations[idx]
         img_path = os.path.join(self.image_dir_path, annotation["image"])
@@ -68,6 +66,23 @@ class ImageNet1KDataset(Dataset):
             "id": idx,
             "image": image,
             "synset_id": annotation["synset_id"],  # class ID of the ImageNet class
-            "class_name": annotation["class_name"],  # human-readable name of ImageNet class
+            "class_name": annotation[
+                "class_name"
+            ],  # human-readable name of ImageNet class
             "class_id": self.classes_names.index(annotation["class_name"]),
         }
+
+
+if __name__ == "__main__":
+    BS = 6
+    train_dataset = ImageNet1KDataset(
+        image_dir_path="/dss/dssmcmlfs01/pn34sa/pn34sa-dss-0000/robustness/datasets/imagenet/subset-8-classes/train",
+        annotations_path="/dss/dssmcmlfs01/pn34sa/pn34sa-dss-0000/robustness/datasets/imagenet/imagenet_annotation_train_8_classes_5_per_class.json",
+    )
+
+    eval_dataset = ImageNet1KDataset(
+        image_dir_path="/dss/dssmcmlfs01/pn34sa/pn34sa-dss-0000/robustness/datasets/imagenet/subset-8-classes/val",
+        annotations_path="/dss/dssmcmlfs01/pn34sa/pn34sa-dss-0000/robustness/datasets/imagenet/imagenet_annotation_val_8_classes_5_per_class.json",
+    )
+    train_loader = prepare_train_loader(train_dataset, BS, num_workers=4)
+    eval_loader = prepare_train_loader(eval_dataset, BS, num_workers=4)

@@ -6,56 +6,39 @@ import logging
 import huggingface_hub
 import os
 from torch import optim
-from open_flamingo import create_model_and_transforms, create_model_and_transforms_w_prompt
+from open_flamingo import (
+    create_model_and_transforms,
+    create_model_and_transforms_w_prompt,
+)
 from huggingface_hub import hf_hub_download
 import torch
 from tqdm import tqdm, trange
 
 logging.basicConfig(
     level=logging.DEBUG,
-    format='[%(levelname)s:%(asctime)s:%(name)s:%(filename)s:%(lineno)d]\t %(message)s',
+    format="[%(levelname)s:%(asctime)s:%(name)s:%(filename)s:%(lineno)d]\t %(message)s",
 )
 
 logger = logging.getLogger(__name__)
 
-HF_HOME = "/dss/dssmcmlfs01/pn34sa/pn34sa-dss-0000/.cache/huggingface"
-if os.path.exists(HF_HOME):
+if os.getlogin() == "di93zun":
+    HF_HOME = "/dss/dssmcmlfs01/pn34sa/pn34sa-dss-0000/.cache/huggingface"
+    os.environ["HF_HOME"] = HF_HOME
+elif os.getlogin() == "b207dd13":
+    HF_HOME = "/home/atuin/b207dd/b207dd13/.cache/huggingface"
     os.environ["HF_HOME"] = HF_HOME
 else:
-    # export environment variables
-    os.environ["HF_HOME"] = "/mnt/.cache/huggingface"
+    raise NotImplementedError("Unknown user. Please set HF_HOME manually.")
+
 logger.info(f"HF_HOME: {os.environ['HF_HOME']}")
 
 device = torch.device("cuda:0")
 
-MODEL_DICT_9B = {
-    "language": "anas-awadalla/mpt-7b",
-    "flamingo": "openflamingo/OpenFlamingo-9B-vitl-mpt7b",
-    "cross_attn_every_n_layers": 4
-}
-
-MODEL_DICT_4BI = {
-    "language": "togethercomputer/RedPajama-INCITE-Instruct-3B-v1",
-    "flamingo": "openflamingo/OpenFlamingo-4B-vitl-rpj3b-langinstruct",
-    "cross_attn_every_n_layers": 2
-}
-
-MODEL_DICT_4B = {
-    "language": "togethercomputer/RedPajama-INCITE-Base-3B-v1",
-    "flamingo": "openflamingo/OpenFlamingo-4B-vitl-rpj3b",
-    "cross_attn_every_n_layers": 2
-}
-
-MODEL_DICT_3BI = {
-    "language": "anas-awadalla/mpt-1b-redpajama-200b-dolly",
-    "flamingo": "openflamingo/OpenFlamingo-3B-vitl-mpt1b-langinstruct",
-    "cross_attn_every_n_layers": 1
-}
-
 MODEL_DICT_3B = {
     "language": "anas-awadalla/mpt-1b-redpajama-200b",
     "flamingo": "openflamingo/OpenFlamingo-3B-vitl-mpt1b",
-    "cross_attn_every_n_layers": 1
+    "cross_attn_every_n_layers": 1,
+    "checkpoint_path": "/home/atuin/b207dd/b207dd13/.cache/huggingface/hub/models--openflamingo--OpenFlamingo-3B-vitl-mpt1b/snapshots/ed3a0c3190b2fc2d1c39630738896d4e73ce1bbc/checkpoint.pt",
 }
 
 MODEL = MODEL_DICT_3B
@@ -63,6 +46,7 @@ BS = 6
 NUMBER_OF_MEDIA_PROMPTS = 5
 NUMBER_OF_TEXT_PROMPTS_PER_MEDIA = 3
 NUMBER_OF_TEXT_PROMPTS = NUMBER_OF_MEDIA_PROMPTS * NUMBER_OF_TEXT_PROMPTS_PER_MEDIA
+
 
 def build_sentence(number_of_media_tokens, number_of_text_tokens_per_media):
     query_info = "<image>Output:Food Table<|endofchunk|>"
@@ -76,31 +60,30 @@ def build_sentence(number_of_media_tokens, number_of_text_tokens_per_media):
     full_sentence += query_info
     return full_sentence, incomplete_sentence
 
+
 # full_sentence = "<image><PAD><PAD><PAD><|endofchunk|><image><PAD><PAD><PAD><|endofchunk|><image>Output:Food Table<|endofchunk|>"
 # incomplete_sentence = "<image><PAD><PAD><PAD><|endofchunk|><image><PAD><PAD><PAD><|endofchunk|><image>Output:"
 
-full_sentence, incomplete_sentence = build_sentence(NUMBER_OF_MEDIA_PROMPTS, NUMBER_OF_TEXT_PROMPTS_PER_MEDIA)
-print(f"full_sentence: {full_sentence} \n with {NUMBER_OF_MEDIA_PROMPTS} soft prompt media tokens {NUMBER_OF_TEXT_PROMPTS} soft prompt text tokens ({NUMBER_OF_TEXT_PROMPTS_PER_MEDIA} soft prompt text tokens per media).")
+full_sentence, incomplete_sentence = build_sentence(
+    NUMBER_OF_MEDIA_PROMPTS, NUMBER_OF_TEXT_PROMPTS_PER_MEDIA
+)
+print(
+    f"full_sentence: {full_sentence} \n with {NUMBER_OF_MEDIA_PROMPTS} soft prompt media tokens {NUMBER_OF_TEXT_PROMPTS} soft prompt text tokens ({NUMBER_OF_TEXT_PROMPTS_PER_MEDIA} soft prompt text tokens per media)."
+)
 print(f"incomplete_sentence: {incomplete_sentence}")
 
 model, image_processor, tokenizer = create_model_and_transforms_w_prompt(
-    number_of_text_prompts = NUMBER_OF_TEXT_PROMPTS,
-    number_of_media_prompts = NUMBER_OF_MEDIA_PROMPTS,
+    number_of_text_prompts=NUMBER_OF_TEXT_PROMPTS,
+    number_of_media_prompts=NUMBER_OF_MEDIA_PROMPTS,
     clip_vision_encoder_path="ViT-L-14",
     clip_vision_encoder_pretrained="openai",
     lang_encoder_path=MODEL["language"],
     tokenizer_path=MODEL["language"],
     cross_attn_every_n_layers=MODEL["cross_attn_every_n_layers"],
 )
-
-# grab model checkpoint from huggingface hub
-huggingface_hub.login(
-    token="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"
-)
-checkpoint_path = hf_hub_download(MODEL["flamingo"], "checkpoint.pt")
-model.load_state_dict(torch.load(checkpoint_path), strict=False)
-
+model.load_state_dict(torch.load(MODEL["checkpoint_path"]), strict=False)
 model.to(device)
+
 from PIL import Image
 import requests
 
@@ -121,10 +104,10 @@ Step 1: Load images
 # )
 
 query_image = Image.open(
-    requests.get(
-        "http://images.cocodataset.org/test-stuff2017/000000028352.jpg",
-        stream=True
-    ).raw
+    # requests.get(
+    #     "http://images.cocodataset.org/test-stuff2017/000000028352.jpg", stream=True
+    # ).raw
+    "000000028352.jpg"
 )
 
 
@@ -148,7 +131,7 @@ Details: In the text we expect an <image> special token to indicate where an ima
  We also expect an <|endofchunk|> special token to indicate the end of the text 
  portion associated with an image.
 """
-tokenizer.padding_side = "left" # For generation padding tokens should be on the left
+tokenizer.padding_side = "left"  # For generation padding tokens should be on the left
 
 lang_x_full = tokenizer(
     [full_sentence],
@@ -181,7 +164,9 @@ logger.info(f"attention_mask shape: {lang_x_full['attention_mask'].shape}")
 logger.info(f"attention_mask: {lang_x_full['attention_mask']}")
 
 for i in range(len(lang_x_full["input_ids"][0])):
-    logger.info(f"lang_x_full input tokens {i} with id {lang_x_full['input_ids'][0][i]}:|{tokenizer.decode(lang_x_full['input_ids'][0][i])}|")
+    logger.info(
+        f"lang_x_full input tokens {i} with id {lang_x_full['input_ids'][0][i]}:|{tokenizer.decode(lang_x_full['input_ids'][0][i])}|"
+    )
 
 params_to_optimize = [model.soft_prompt_media, model.soft_prompt_text]
 # for p in params_to_optimize:
@@ -203,7 +188,7 @@ initial_generation = model.generate(
     max_new_tokens=20,
     num_beams=1,
     no_repeat_ngram_size=2,
-    early_stopping=True
+    early_stopping=True,
 )
 for b in range(BS):
     print("Initially Generated text: ", tokenizer.decode(initial_generation[b]))
@@ -217,7 +202,7 @@ for iter in tbar:
         vision_x=vision_x,
         lang_x=lang_x_full["input_ids"],
         attention_mask=lang_x_full["attention_mask"],
-        labels=lang_x_full["input_ids"].clone().to(vision_x.device)
+        labels=lang_x_full["input_ids"].clone().to(vision_x.device),
     )[0]
     forward_loss.backward()
     optimizer.step()
@@ -242,7 +227,7 @@ final_generation = model.generate(
     max_new_tokens=20,
     num_beams=1,
     no_repeat_ngram_size=2,
-    early_stopping=True
+    early_stopping=True,
 )
 for b in range(BS):
     print("Generated text: ", tokenizer.decode(final_generation[b]))

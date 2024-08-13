@@ -1,3 +1,5 @@
+import getpass
+
 import numpy as np
 import torch
 import random
@@ -23,7 +25,13 @@ def create_experiment_dir(args, model_args):
     BASE_PATH/model/demo_mode_{demo_mode}/visual_demo_mode_{visual_demo_mode}/exp_time/evaluation_results.json
     BASE_PATH/model/demo_mode_{demo_mode}/visual_demo_mode_{visual_demo_mode}/exp_time/prediction_results.json
     """
-    BASE_PATH = "/dss/dssmcmlfs01/pn34sa/pn34sa-dss-0000/robustness/in-context-open-flamingo/open_flamingo_2-0/.experimental_results"
+    if getpass.getuser() == "di93zun":
+        BASE_PATH = "/dss/dssmcmlfs01/pn34sa/pn34sa-dss-0000/robustness/in-context-open-flamingo/open_flamingo_2-0/.experimental_results"
+    elif getpass.getuser() == "b207dd13":
+        BASE_PATH = "/home/atuin/b207dd/b207dd13/in-context/open_flamingo/.experimental_results"
+    else:
+        raise NotImplementedError("Unknown user. Please set BASE_PATH manually.")
+
     if not os.path.exists(BASE_PATH):
         os.makedirs(BASE_PATH)
     if "9B" in model_args["checkpoint_path"]:
@@ -61,6 +69,8 @@ def create_experiment_dir(args, model_args):
         evaluate_tasks.append("flickr30")
     if args.eval_hateful_memes:
         evaluate_tasks.append("hateful_memes")
+    if args.eval_imagenet:
+        evaluate_tasks.append("imagenet")
 
     evaluate_tasks = "_".join(evaluate_tasks)
     # time in  format 2021-06-30_15-00-00
@@ -196,6 +206,11 @@ def get_query_set(train_dataset, query_set_size):
     """
     Get a subset of the training dataset to use as the query set.
     """
+    if query_set_size > len(train_dataset):
+        logger.warning(
+            f"Number of query requested {query_set_size} is greater than the size of the dataset {len(train_dataset)}."
+            f" Setting query_set_size to {len(train_dataset)}")
+        query_set_size = len(train_dataset)
     query_set = np.random.choice(len(train_dataset), query_set_size, replace=False)
     return [train_dataset[i] for i in query_set]
 

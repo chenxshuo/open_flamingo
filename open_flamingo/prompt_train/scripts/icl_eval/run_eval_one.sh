@@ -42,4 +42,8 @@ python main.py \
       $ROBUST_PROMPTING \
       $EVAL_ON_NOVEL_CLASSES \
       --only_load_and_eval \
-      --load_from_dir $LOAD_FROM_DIR
+      --load_from_dir $LOAD_FROM_DIR \
+      --do_icl \
+      --num_shots 4 \
+      --do_rices \
+      --icl_insertion_position demo-prompting-query

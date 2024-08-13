@@ -2,9 +2,9 @@
 
 """TODO."""
 
-from playground import (load_model, prepare_lang_x, prepare_vision_x, generate, load_ood_dataset, load_question_space)
+from playground import (load_model, prepare_lang_x, prepare_vision_x, generate, load_ood_dataset, load_question_space, classification)
 device = "cuda:0"
-model, image_processor, tokenizer = load_model("9BI", device=device)
+model, image_processor, tokenizer = load_model("3B", device=device)
 base_train_url = "http://images.cocodataset.org/train2014/"
 test_img_url = "http://images.cocodataset.org/val2014/"
 
@@ -53,36 +53,60 @@ test_img_url = "http://images.cocodataset.org/val2014/"
             # "COCO_train2014_000000160325.jpg <image>Question:Which famous characters might you see in this place? Short answer:mickey mouse<|endofchunk|>\n"
         # ]
 
-test_question = "Is the zebra in it's natural habitat?"
-test_image = test_img_url + "COCO_val2014_000000075162.jpg"
+test_question = "Output:"
+# test_image = test_img_url + "COCO_val2014_000000075162.jpg"
+test_image = "/dss/dssmcmlfs01/pn34sa/pn34sa-dss-0000/robustness/datasets/imagenet/subset-32-classes/val/n01774750/ILSVRC2012_val_00011712.JPEG"
+
+# demo_extracted = [
+#             "COCO_train2014_000000049987.jpg <image>Question:Where is the zebra looking? Short answer:ground<|endofchunk|>\n",
+#             "COCO_train2014_000000049987.jpg <image>Question:Is there a tree in the photo? Short answer:no<|endofchunk|>\n",
+#             "COCO_train2014_000000049987.jpg <image>Question:What is the wall made of? Short answer:stone<|endofchunk|>\n",
+#             "COCO_train2014_000000049987.jpg <image>Question:What is the zebra doing? Short answer:grazing<|endofchunk|>\n",
+#             "COCO_train2014_000000049987.jpg <image>Question:Is the animal in the shade? Short answer:no<|endofchunk|>\n",
+#             "COCO_train2014_000000229107.jpg <image>Question:How many logs? Short answer:6<|endofchunk|>\n",
+#             "COCO_train2014_000000229107.jpg <image>Question:Is this a young or a mature zebra? Short answer:young<|endofchunk|>\n",
+#             "COCO_train2014_000000229107.jpg <image>Question:Is this animal free or in captivity? Short answer:in captivity<|endofchunk|>\n"
+#         ]
 
 demo_extracted = [
-            "COCO_train2014_000000049987.jpg <image>Question:Where is the zebra looking? Short answer:ground<|endofchunk|>\n",
-            "COCO_train2014_000000049987.jpg <image>Question:Is there a tree in the photo? Short answer:no<|endofchunk|>\n",
-            "COCO_train2014_000000049987.jpg <image>Question:What is the wall made of? Short answer:stone<|endofchunk|>\n",
-            "COCO_train2014_000000049987.jpg <image>Question:What is the zebra doing? Short answer:grazing<|endofchunk|>\n",
-            "COCO_train2014_000000049987.jpg <image>Question:Is the animal in the shade? Short answer:no<|endofchunk|>\n",
-            "COCO_train2014_000000229107.jpg <image>Question:How many logs? Short answer:6<|endofchunk|>\n",
-            "COCO_train2014_000000229107.jpg <image>Question:Is this a young or a mature zebra? Short answer:young<|endofchunk|>\n",
-            "COCO_train2014_000000229107.jpg <image>Question:Is this animal free or in captivity? Short answer:in captivity<|endofchunk|>\n"
-        ]
+    "/dss/dssmcmlfs01/pn34sa/pn34sa-dss-0000/robustness/datasets/imagenet/subset-32-classes/train/n02356798/n02356798_5571.JPEG<image>Output:fox squirrel<|endofchunk|>",
+    "/dss/dssmcmlfs01/pn34sa/pn34sa-dss-0000/robustness/datasets/imagenet/subset-32-classes/train/n01784675/n01784675_9652.JPEG<image>Output:centipede<|endofchunk|>"
+]
 
 
-# visual_mode = "gold"
-visual_mode = "no_images"
+visual_mode = "gold"
+# visual_mode = "no_images"
 
 if visual_mode == "no_images":
     demo_image_urls = []
     demo_text = [t.split("<image>")[1] for t in demo_extracted]
     query_text = f"Question:{test_question} Short answer:"
 else:
-    demo_image_urls = [base_train_url + d.split(" ")[0] for d in demo_extracted]
+    # demo_image_urls = [base_train_url + d.split(" ")[0] for d in demo_extracted]
+    demo_image_urls  = [d.split("<image>")[0] for d in demo_extracted]
     demo_text = ["<image>" + t.split("<image>")[1] for t in demo_extracted]
-    query_text = f"Question:{test_question} Short answer:"
+    # query_text = f"Question:{test_question} Short answer:"
+    query_text = f"Output:"
 
+NOVEL_8_CLASSES = [
+    "cheeseburger",
+    "candle",
+    "monarch",
+    "goldfinch",
+    "hermit crab",
+    "banana",
+    "drake",
+    "canoe",
+]
 
 vision_x = prepare_vision_x(demo_image_urls, test_image, image_processor, device=device)
 input_ids, attention_masks = prepare_lang_x(demo_text, query_text, tokenizer, device=device, visual_mode=visual_mode)
-generate(vision_x, input_ids, attention_masks, model, tokenizer)
-
+classification_results = classification(
+    vision_x=vision_x,
+    input_ids=input_ids,
+    model=model,
+    all_class_names=NOVEL_8_CLASSES,
+    class_id_to_name={k:v for k in range(8) for v in NOVEL_8_CLASSES},
+)
+print(classification_results)
 

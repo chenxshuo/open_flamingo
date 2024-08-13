@@ -2,11 +2,21 @@ import open_clip
 import torch
 from tqdm import tqdm
 import torch
-from utils import custom_collate_fn
+
 from sentence_transformers import SentenceTransformer
 import logging
 
 logger = logging.getLogger(__name__)
+
+def custom_collate_fn(batch):
+    """
+    Collate function for DataLoader that collates a list of dicts into a dict of lists.
+    """
+    collated_batch = {}
+    for key in batch[0].keys():
+        collated_batch[key] = [item[key] for item in batch]
+    return collated_batch
+
 
 class RICES:
     def __init__(
@@ -71,6 +81,7 @@ class RICES:
                 features.append(image_features.detach())
 
         features = torch.cat(features)
+        features = features.to("cpu")
         return features
 
     def find(self, batch, num_examples):

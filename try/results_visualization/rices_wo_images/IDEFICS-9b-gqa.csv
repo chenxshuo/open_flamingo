@@ -1,8 +1,8 @@
 settings,shots,performance
-standard, 4, 39.35
-standard, 8, 40.54
-standard, 16, 41.38
-standard, 32, 41.866
+random, 4, 39.35
+random, 8, 40.54
+random, 16, 41.38
+random, 32, 41.866
 demo w/o images, 4, 38.638
 demo w/o images, 8, 39.45
 demo w/o images, 16, 40.268

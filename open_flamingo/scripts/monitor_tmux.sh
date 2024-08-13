@@ -16,7 +16,8 @@ tmux selectp -t 3
 tmux send-keys "cd ~; source .bashrc; python watch_worker_lrz.py" C-m
 tmux splitw -v -p 50
 tmux send-keys "watch -n 1 'squeue --format=%13i%20j%15u%10T%10M%15l%20P%20R%Q --sort=Q -p mcml-dgx-a100-40x8'" C-m
-
+tmux splitw -v -p 50
+tmux send-keys "watch -n 100 'python monitor_disk.py'" C-m
 
 tmux set -g mouse on
 

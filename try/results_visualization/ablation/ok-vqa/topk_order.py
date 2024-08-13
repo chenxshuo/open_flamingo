@@ -24,7 +24,7 @@ sns.set(font="times new roman", style="ticks", palette=[COLOR_2, COLOR_3, COLOR_
 topk_data = pd.read_csv("OF-OKVQA-top-k.csv")
 df_order = pd.read_csv("OF-OKVQA-order.csv")
 # draw a line plot
-fig, (topk, order) = plt.subplots(1,2, figsize=(8, 3))
+fig, (topk, order) = plt.subplots(1,2, figsize=(8, 2))
 # plt.subplots_adjust(hspace = 0.43)
 
 topk_fig = sns.lineplot(
@@ -43,9 +43,10 @@ topk_fig = sns.lineplot(
 )
 # ax.set_title("VQA-v2", fontsize=12)
 # topk_fig.set(xlabel="Number of shots", ylabel="Performance")
-topk_fig.set_xlabel("Number of shots", fontsize=14)
-topk_fig.set_ylabel("Performance", fontsize=14)
+topk_fig.set_xlabel("Number of shots", fontsize=12)
+topk_fig.set_ylabel("Performance", fontsize=12)
 topk_fig.set_xticks([4, 8, 16, 32])
+topk_fig.legend([], [], frameon=False)
 
 sns.move_legend(topk_fig, "center right", fontsize=10) # bbox_to_anchor=(1, 1)
 
@@ -61,12 +62,12 @@ order_fig = sns.barplot(
 # order_fig.axhline(y=51.28, color=COLOR_7, linestyle="--")
 # order.set_title("VQA-v2", fontsize=14, fontfamily="times new roman")
 # order_fig.set(xlabel=None, ylabel="Performance")
-# order_fig.legend([], [], frameon=False)
+order_fig.legend([], [], frameon=False)
 # order_fig.set(xlabel="Number of shots", ylabel="Accuracy")
-order_fig.set_xlabel("Number of shots", fontsize=14, fontfamily="times new roman")
-order_fig.set_ylabel(None, fontsize=14, fontfamily="times new roman")
+order_fig.set_xlabel("Number of shots", fontsize=12, fontfamily="times new roman")
+order_fig.set_ylabel(None, fontsize=12, fontfamily="times new roman")
 order_fig.set(ylim=(35, 47.5))
-sns.move_legend(order_fig, "center right", fontsize=10) # bbox_to_anchor=(1, 1)
+# sns.move_legend(order_fig, "center right", fontsize=10) # bbox_to_anchor=(1, 1)
 # fig.suptitle(f"OKVQA", fontsize=16)
 plt.show()
 

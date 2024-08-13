@@ -19,7 +19,7 @@ SHOTS=$1
 MASTER_PORT=$2
 BS=$3
 
-export CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7
+export CUDA_VISIBLE_DEVICES=0,1
 NUM_GPUs=`echo $CUDA_VISIBLE_DEVICES | grep -P -o '\d' | wc -l`
 TIMESTAMP=`date +"%Y-%m-%d-%T"`
 COMMENT="4B-reproduce-okvqa-shots-${SHOTS}"

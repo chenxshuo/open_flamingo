@@ -21,7 +21,7 @@ srun --cpu_bind=v --accel-bind=gn python open_flamingo/open_flamingo/train/train
     --train_num_samples_mmc4 125000\
     --train_num_samples_laion 250000 \
     --loss_multiplier_laion 0.2 \
-    --workers=4 \
+    --workers 4 \
     --run_name OpenFlamingo-3B-vitl-mpt1b \
     --num_epochs 480 \
     --warmup_steps  1875 \

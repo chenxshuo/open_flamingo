@@ -23,8 +23,12 @@ sns.set(font="times new roman", style="ticks", palette=[COLOR_2, COLOR_3, COLOR_
 
 # print(sns.axes_style())
 # assert False
-MODEL = "OF-GQA"
+MODEL = "OF-OKVQA"
 # MODEL = "IDEFICS-9b"
+
+y_lim_min = 25
+y_lim_max = 50
+
 
 # OF-9B-shot4
 shot4_data = f"{MODEL}-4shot.csv"
@@ -38,6 +42,7 @@ df_shot16 = pd.read_csv(shot16_data, header=0)
 
 shot32_data = f"{MODEL}-32shot.csv"
 df_shot32 = pd.read_csv(shot32_data, header=0)
+
 
 
 # create subplots
@@ -61,7 +66,7 @@ shot4_fig = sns.barplot(
 # shot4_fig.errorbar(x=x_coords, y=y_coords, yerr=df_shot4["std"], fmt="none", c="k")
 
 shot4.set_title("4-shot", fontsize=14, fontfamily="times new roman")
-shot4_fig.set_ylim(20, 45)
+shot4_fig.set_ylim(y_lim_min, y_lim_max)
 shot4_fig.set(xlabel=None, ylabel="Performance")
 shot4_fig.set_ylabel("Performance", fontsize=12)
 shot4_fig.legend([], [], frameon=False)
@@ -79,7 +84,7 @@ shot8_fig = sns.barplot(
 shot8.set_title("8-shot", fontsize=14, fontfamily="times new roman")
 shot8_fig.set(xlabel=None, ylabel=None)
 shot8_fig.legend([], [], frameon=False)
-shot8_fig.set_ylim(20, 45)
+shot8_fig.set_ylim(y_lim_min, y_lim_max)
 
 
 shot16_fig = sns.barplot(
@@ -95,7 +100,7 @@ shot16.set_title("16-shot", fontsize=14, fontfamily="times new roman")
 shot16_fig.set(xlabel="Model Size", ylabel="Performance")
 shot16_fig.set_ylabel("Performance", fontsize=12)
 shot16_fig.legend([], [], frameon=False)
-shot16_fig.set_ylim(20, 45)
+shot16_fig.set_ylim(y_lim_min, y_lim_max)
 
 shot32_fig = sns.barplot(
     ax=shot32,
@@ -108,7 +113,7 @@ shot32_fig = sns.barplot(
 # shot32_fig.axhline(y=80.189, color=COLOR_7, linestyle="--")
 shot32.set_title("32-shot", fontsize=14, fontfamily="times new roman")
 shot32_fig.set(xlabel="Model Size", ylabel=None)
-shot32_fig.set_ylim(20, 45)
+shot32_fig.set_ylim(y_lim_min, y_lim_max)
 # shot32_fig.legend([], [], frameon=False)
 # shot32_fig.legend(loc="upper left", bbox_to_anchor=(1, 1))
 

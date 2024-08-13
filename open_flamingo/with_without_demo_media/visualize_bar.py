@@ -42,7 +42,7 @@ df_last_attn_weights = pd.read_csv(last_attn_weights_data)
 
 
 # create subplots
-fig, (last_output, last_attn_weights) = plt.subplots(1, 2, figsize=(8, 3), constrained_layout=True)
+fig, (last_output, last_attn_weights) = plt.subplots(1, 2, figsize=(8, 2.2), constrained_layout=True)
 # coco.set_visible(False)
 
 plt.subplots_adjust(hspace = 0.23)
@@ -56,9 +56,9 @@ last_output_fig = sns.barplot(
     # palette="Spectral",
 )
 last_output_fig.set_ylim(0.6, 1)
-last_output_fig.set_title("Last Hidden States", fontsize=16)
+last_output_fig.set_title("Last Hidden States", fontsize=12)
 last_output_fig.set(xlabel=None, ylabel="Cosine Similarity")
-last_output_fig.set_ylabel("Cosine Similarity", fontsize=16)
+last_output_fig.set_ylabel("Cosine Similarity", fontsize=12)
 last_output_fig.legend([], [], frameon=False)
 
 last_attn_weights_fig = sns.barplot(
@@ -70,7 +70,7 @@ last_attn_weights_fig = sns.barplot(
     # palette="Spectral",
 )
 last_attn_weights_fig.set_ylim(0.9, 1)
-last_attn_weights_fig.set_title("Last Attention Weights", fontsize=16)
+last_attn_weights_fig.set_title("Last Attention Weights", fontsize=12)
 last_attn_weights_fig.legend([], [], frameon=False)
 last_attn_weights_fig.set(xlabel=None, ylabel=None)
 
@@ -106,7 +106,7 @@ last_attn_weights_fig.set(xlabel=None, ylabel=None)
 # gqa_fig.legend([], [], frameon=False)
 #
 #
-sns.move_legend(last_attn_weights, "center", bbox_to_anchor=(1,0.5), fontsize=14)
+sns.move_legend(last_attn_weights, "center", bbox_to_anchor=(1,0.5), fontsize=12)
 
 # fig.suptitle(f"Cosine Similarity Comparison", fontsize=16)
 plt.show()

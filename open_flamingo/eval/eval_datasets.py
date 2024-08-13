@@ -94,12 +94,12 @@ class CaptionDataset(Dataset):
             image = Image.open(
                 os.path.join(
                     self.image_train_dir_path, self.annotations[idx]["filename"]
-                ).convert("RGB")
+                )
                 if self.annotations[idx]["filepath"] == "train2014"
                 else os.path.join(
                     self.image_val_dir_path, self.annotations[idx]["filename"]
                 )
-            )
+            ).convert("RGB")
         elif self.dataset_name == "flickr":
             image = Image.open(
                 os.path.join(
@@ -418,24 +418,35 @@ class VQADatasetDiffDemoForm(VQADataset):
             results["answers"] = [random.choice(self.label_space_for_same_question[random_input])]
             return results
 
-class ImageNetDataset(ImageFolder):
+class ImageNetDataset(Dataset):
     """Class to represent the ImageNet1k dataset."""
 
-    def __init__(self, root, **kwargs):
-        super().__init__(root=root, **kwargs)
-        self.class_id_to_name = dict(
-            zip(range(len(IMAGENET_CLASSNAMES)), IMAGENET_CLASSNAMES)
-        )
+    def __init__(self, image_dir_path, annotations_path):
+        self.image_dir_path = image_dir_path
+        with open(annotations_path, "r") as f:
+            self.annotations = [json.loads(line) for line in f]
+        self.classes_names = []
+        for ann in self.annotations:
+            if ann["class_name"] not in self.classes_names:
+                self.classes_names.append(ann["class_name"])
+        self.class_id_to_name = {i: name for i, name in enumerate(self.classes_names)}
 
+    def __len__(self):
+        return len(self.annotations)
     def __getitem__(self, idx):
-        sample, target = super().__getitem__(idx)
-        target_label = self.class_id_to_name[target]
+        annotation = self.annotations[idx]
+        img_path = os.path.join(self.image_dir_path, annotation["image"])
+        image = Image.open(img_path).convert("RGB")
+        image.load()
         return {
             "id": idx,
-            "image": sample,
-            "class_id": target,  # numeric ID of the ImageNet class
-            "class_name": target_label,  # human-readable name of ImageNet class
+            "image": image,
+            "synset_id": annotation["synset_id"],  # class ID of the ImageNet class
+            "class_name": annotation["class_name"],  # human-readable name of ImageNet class
+            "class_id": self.classes_names.index(annotation["class_name"]),
+            "image_path": img_path,
         }
+
 
 
 class HatefulMemesDataset(Dataset):

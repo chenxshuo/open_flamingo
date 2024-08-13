@@ -272,6 +272,7 @@ def get_mmc4_dataset(args, image_processor, tokenizer, epoch=0, floor=False):
     """
     Initialize webdataset for MMC4 / ChatGPT sequences
     """
+    # path to c4 shards, this should be a glob pattern such as /path/to/shards/shard-{0000..0999}.tar
     input_shards = args.mmc4_shards
     assert input_shards is not None
     resampled = getattr(args, "dataset_resampled", False)

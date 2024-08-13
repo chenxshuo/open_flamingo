@@ -53,6 +53,7 @@ width=0.6,
     # palette=[COLOR_1, COLOR_2, COLOR_3, COLOR_4, COLOR_5],
 )
 # shot4_fig.axhline(y=51.28, color=COLOR_7, linestyle="--")
+# shot4_fig.set_ylim(80,120)
 shot4_fig.set_ylim(35,55)
 # x_coords = [p.get_x() + 0.5 * p.get_width() for p in shot4_fig.patches][:9]
 # y_coords = [p.get_height() for p in shot4_fig.patches][:9]
@@ -117,4 +118,4 @@ sns.move_legend(shot32, "upper left", bbox_to_anchor=(1, 1), fontsize=12)
 plt.show()
 
 # save the plot
-fig.savefig(f"ablation-model-{MODEL}.pdf", dpi=500)
+fig.savefig(f"ablation-model-adding-mmicl-{MODEL}.pdf", dpi=500)

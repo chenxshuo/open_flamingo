@@ -1,10 +1,10 @@
 model_size,method,performance
 3B, random, 033.33
 3B, RICES, 35.02
-3B, VLICES, 38.37
+3B, MMICES, 38.37
 4B, random, 32.64
 4B, RICES, 34.42
-4B, VLICES, 37.22
+4B, MMICES, 37.22
 9B, random, 37.85
 9B, RICES, 40.21
-9B, VLICES, 42.07
+9B, MMICES, 42.07

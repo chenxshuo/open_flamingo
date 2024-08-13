@@ -561,7 +561,15 @@ parser.add_argument(
 
 
 ## Imagenet dataset
-parser.add_argument("--imagenet_root", type=str, default="/tmp")
+parser.add_argument("--imagenet_train_root", type=str, default="/tmp")
+parser.add_argument("--imagenet_train_annotation", type=str, default="/tmp")
+parser.add_argument("--imagenet_val_root", type=str, default="/tmp")
+parser.add_argument("--imagenet_val_annotation", type=str, default="/tmp")
+
+parser.add_argument(
+    "--zero_shot_wo_demo_text",
+    action="store_true",
+)
 
 ## Hateful Memes dataset
 parser.add_argument(
@@ -1189,8 +1197,8 @@ def main():
                 )
 
     if args.rank == 0 and args.results_file is not None:
-        with open(args.results_file, "w") as f:
-            json.dump(results, f)
+        # with open(args.results_file, "w") as f:
+        #     json.dump(results, f)
         with open(os.path.join(experiment_base_dir, "evaluation_results.json"), "w") as f:
             json.dump(results, f)
 
@@ -2364,13 +2372,15 @@ def evaluate_classification(
         )
 
     if dataset_name == "imagenet":
-        if demo_mode:
+        if demo_mode != "gold":
             raise NotImplementedError("Task recognition is not yet supported for ImageNet")
         else:
-            train_dataset = ImageNetDataset(os.path.join(args.imagenet_root, "train"))
-        test_dataset = ImageNetDataset(os.path.join(args.imagenet_root, "val"))
+            train_dataset = ImageNetDataset(image_dir_path=args.imagenet_train_root, annotations_path=args.imagenet_train_annotation)
+        test_dataset = ImageNetDataset(image_dir_path=args.imagenet_val_root, annotations_path=args.imagenet_val_annotation)
+        logger.info(f"train dataset img dir  {train_dataset.image_dir_path} and classes {train_dataset.classes_names} length of train dataset {len(train_dataset)}")
+        logger.info(f"test dataset img dir  {test_dataset.image_dir_path} and classes {test_dataset.classes_names} length of test dataset {len(test_dataset)}")
         prompt_fn = lambda x: eval_model.get_imagenet_prompt(label=x["class_name"])
-        all_class_names = IMAGENET_CLASSNAMES
+        all_class_names = test_dataset.classes_names
         k = 5
     elif dataset_name == "hateful_memes":
         if demo_mode:
@@ -2397,7 +2407,7 @@ def evaluate_classification(
     else:
         raise ValueError(f"Unsupported dataset {dataset_name}")
 
-    class_id_to_name = dict(zip(range(len(all_class_names)), all_class_names))
+    class_id_to_name = test_dataset.class_id_to_name
 
     effective_num_shots = utils.compute_effective_num_shots(num_shots, args.model)
 
@@ -2422,10 +2432,15 @@ def evaluate_classification(
         # subset of the training set to sample context images from
         query_set = utils.get_query_set(train_dataset, args.query_set_size)
 
+
     utils.random_seed(seed, args.rank)
     predictions = []
-    for batch_idx, batch in tqdm(
-        enumerate(test_dataloader),
+
+    if args.store_demos_and_predictions:
+        ques_to_demos_and_predictions = {}
+
+    for batch in tqdm(
+        test_dataloader,
         desc=f"Running inference {dataset_name}",
         disable=args.rank != 0,
     ):
@@ -2440,6 +2455,7 @@ def evaluate_classification(
         num_permutations = (
             min(6, math.factorial(effective_num_shots)) if use_prompt_ensembling else 1
         )
+        # logger.info(f"num permutations {num_permutations}")
         logprobs = []
         for _ in range(num_permutations):
             batch_images, batch_text = [], []
@@ -2447,24 +2463,41 @@ def evaluate_classification(
                 if use_prompt_ensembling:
                     random.shuffle(batch_demo_samples[i])
 
-                if effective_num_shots > 0:
+                if num_shots > 0:
                     context_images = [x["image"] for x in batch_demo_samples[i]]
                 else:
                     context_images = []
-                batch_images.append(context_images + [batch["image"][i]])
+                if args.visual_demo_mode == "no_images":
+                    batch_images.append([batch["image"][i]])
+                else:
+                    batch_images.append(context_images + [batch["image"][i]])
 
                 context_text = "".join([prompt_fn(x) for x in batch_demo_samples[i]])
 
                 # Keep the text but remove the image tags for the zero-shot case
                 if num_shots == 0:
-                    context_text = context_text.replace("<image>", "")
+                    if args.zero_shot_wo_demo_text:
+                        # true zero shot without any information
+                        context_text = ""
+                    else:
+                        context_text = context_text.replace("<image>", "")
 
-                batch_text.append(
-                    context_text
-                    + prompt_fn({"ocr": batch["ocr"][i], "class_name": None})
-                )
+                if dataset_name == "hateful_memes":
+                    batch_text.append(
+                        context_text
+                        + prompt_fn({"ocr": batch["ocr"][i], "class_name": None})
+                    )
+                elif dataset_name == "imagenet":
+                    batch_text.append(context_text + prompt_fn({"class_name": None}))
 
+            # logger.info(f"batch_text: {batch_text}")
+            # logger.info(f"batch_text size: {len(batch_text)}")
+            # logger.info(f"batch_images: {batch_images}")
+            # logger.info(f"batch_images size: {len(batch_images)}")
+            # assert False
             # get predicted class names
+            # import ipdb; ipdb.set_trace()
+
             logprobs.append(
                 eval_model.get_rank_classifications(
                     batch_text,
@@ -2484,6 +2517,7 @@ def evaluate_classification(
             class_id_to_name,
         )
 
+
         # compute accuracy
         for i, topk in enumerate(predicted_classnames):
             y_i = batch["class_name"][i]
@@ -2492,12 +2526,24 @@ def evaluate_classification(
             ).item()
             predictions.append(
                 {
-                    "id": batch["id"][i],
+                    "id": int(batch["id"][i]),
                     "gt_label": y_i,
                     "pred_label": topk[0],
                     "pred_score": score,
                 }
             )
+
+        if args.store_demos_and_predictions:
+            for i in range(len(batch["id"])):
+                ques_to_demos_and_predictions[batch["image_path"][i]] = {
+                    "predictions": predicted_classnames[i],
+                    "labels": batch["class_name"][i],
+                    "demos": [
+                        str(x["image_path"]) + eval_model.get_imagenet_prompt(label=x["class_name"])
+                        for x in batch_demo_samples[i]
+                    ]
+                }
+
 
     # all gather
     all_predictions = [None for _ in range(args.world_size)]
@@ -2508,6 +2554,24 @@ def evaluate_classification(
     all_predictions = [
         item for sublist in all_predictions for item in sublist
     ]  # flatten
+    # import ipdb; ipdb.set_trace()
+
+
+    if args.store_demos_and_predictions:
+        all_demos_and_predictions = [None for _ in range(args.world_size)]
+        torch.distributed.all_gather_object(
+            all_demos_and_predictions, ques_to_demos_and_predictions
+        )
+        # list of dict to a whole dict
+        ques_to_demos_and_predictions = {}
+        for item in all_demos_and_predictions:
+            ques_to_demos_and_predictions.update(item)
+        # save the demos and predictions
+        save_to = os.path.join(experiment_base_dir if experiment_base_dir is not None else '',
+                               f"{dataset_name}_demos_and_predictions_shots_{num_shots}_seed_{seed}.json")
+        with open(save_to, "w") as f:
+            f.write(json.dumps(ques_to_demos_and_predictions, indent=4))
+
 
     result_file = os.path.join(experiment_base_dir if experiment_base_dir is not None else '',
                                f"{dataset_name}_results_shots_{num_shots}.json")

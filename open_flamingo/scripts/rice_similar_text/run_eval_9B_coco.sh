@@ -22,8 +22,8 @@ SHOTS=$1
 MASTER_PORT=$2
 BS=$3
 SIMILAR_IN_TOP_K=200
-#VISUAL_MODE="random"
-VISUAL_MODE="no_images"
+VISUAL_MODE="random"
+#VISUAL_MODE="no_images"
 
 export CUDA_VISIBLE_DEVICES=0,1,2,3
 NUM_GPUs=`echo $CUDA_VISIBLE_DEVICES | grep -P -o '\d' | wc -l`

@@ -239,20 +239,41 @@ if __name__ == "__main__":
     #     task="okvqa",
     # )
 
+    #
+    # vqav2_rice_image_demo_only_text_result = "/dss/dssmcmlfs01/pn34sa/pn34sa-dss-0000/robustness/in-context-open-flamingo/open_flamingo_2-0/.experimental_results/OF9B/rices/demo_mode_gold/visual_demo_mode_no_images/vqav2/shot_8/2023-10-14_15-06-40/vqav2_results_shots_8.json"
+    # vqav2_rice_image_demo_only_text_demos = "/dss/dssmcmlfs01/pn34sa/pn34sa-dss-0000/robustness/in-context-open-flamingo/open_flamingo_2-0/.experimental_results/OF9B/rices/demo_mode_gold/visual_demo_mode_no_images/vqav2/shot_8/2023-10-14_15-06-40/vqav2_demos_and_predictions_shots_8.json"
+    #
+    # vqav2_rice_image_ranking_text_demo_only_text_result = "/dss/dssmcmlfs01/pn34sa/pn34sa-dss-0000/robustness/in-context-open-flamingo/open_flamingo_2-0/.experimental_results/OF9B/rices_find_by_ranking_similar_text/demo_mode_gold/visual_demo_mode_no_images/vqav2/shot_8/2023-10-13_01-16-32/vqav2_results_shots_8.json"
+    # vqav2_rice_image_ranking_text_demo_only_text_demos = "/dss/dssmcmlfs01/pn34sa/pn34sa-dss-0000/robustness/in-context-open-flamingo/open_flamingo_2-0/.experimental_results/OF9B/rices_find_by_ranking_similar_text/demo_mode_gold/visual_demo_mode_no_images/vqav2/shot_8/2023-10-13_01-16-32/vqav2_demos_and_predictions_shots_8.json"
+    #
+    # compare(
+    #     prediction_one=vqav2_rice_image_demo_only_text_result,
+    #     prediction_one_comment="vqav2_rice_image_demo_only_text",
+    #     demo_one=vqav2_rice_image_demo_only_text_demos,
+    #
+    #     prediction_two=vqav2_rice_image_ranking_text_demo_only_text_result,
+    #     prediction_two_comment="vqav2_rice_image_ranking_text_demo_only_text",
+    #     demo_two=vqav2_rice_image_ranking_text_demo_only_text_demos,
+    #     task="vqav2",
+    # )
 
-    vqav2_rice_image_demo_only_text_result = "/dss/dssmcmlfs01/pn34sa/pn34sa-dss-0000/robustness/in-context-open-flamingo/open_flamingo_2-0/.experimental_results/OF9B/rices/demo_mode_gold/visual_demo_mode_no_images/vqav2/shot_8/2023-10-14_15-06-40/vqav2_results_shots_8.json"
-    vqav2_rice_image_demo_only_text_demos = "/dss/dssmcmlfs01/pn34sa/pn34sa-dss-0000/robustness/in-context-open-flamingo/open_flamingo_2-0/.experimental_results/OF9B/rices/demo_mode_gold/visual_demo_mode_no_images/vqav2/shot_8/2023-10-14_15-06-40/vqav2_demos_and_predictions_shots_8.json"
-
-    vqav2_rice_image_ranking_text_demo_only_text_result = "/dss/dssmcmlfs01/pn34sa/pn34sa-dss-0000/robustness/in-context-open-flamingo/open_flamingo_2-0/.experimental_results/OF9B/rices_find_by_ranking_similar_text/demo_mode_gold/visual_demo_mode_no_images/vqav2/shot_8/2023-10-13_01-16-32/vqav2_results_shots_8.json"
-    vqav2_rice_image_ranking_text_demo_only_text_demos = "/dss/dssmcmlfs01/pn34sa/pn34sa-dss-0000/robustness/in-context-open-flamingo/open_flamingo_2-0/.experimental_results/OF9B/rices_find_by_ranking_similar_text/demo_mode_gold/visual_demo_mode_no_images/vqav2/shot_8/2023-10-13_01-16-32/vqav2_demos_and_predictions_shots_8.json"
+    # okvqa_rice_image_result = "/dss/dssmcmlfs01/pn34sa/pn34sa-dss-0000/robustness/in-context-open-flamingo/open_flamingo_2-0/.experimental_results/OF9B/rices/demo_mode_gold/visual_demo_mode_random/ok_vqa/shot_32/2023-11-07_16-49-00/ok_vqa_results_shots_32_seed_52.json"
+    # okvqa_rice_image_demos = "/dss/dssmcmlfs01/pn34sa/pn34sa-dss-0000/robustness/in-context-open-flamingo/open_flamingo_2-0/.experimental_results/OF9B/rices/demo_mode_gold/visual_demo_mode_random/ok_vqa/shot_32/2023-11-07_16-49-00/ok_vqa_demos_and_predictions_shots_32_seed_52.json"
+    #
+    # okvqa_rice_image_ranking_text_result = "/dss/dssmcmlfs01/pn34sa/pn34sa-dss-0000/robustness/in-context-open-flamingo/open_flamingo_2-0/.experimental_results/OF9B/rices_find_by_ranking_similar_text/demo_mode_gold/visual_demo_mode_random/ok_vqa/shot_32/2023-10-31_04-25-49/ok_vqa_results_shots_32_seed_52.json"
+    # okvqa_rice_image_ranking_text_demos = "/dss/dssmcmlfs01/pn34sa/pn34sa-dss-0000/robustness/in-context-open-flamingo/open_flamingo_2-0/.experimental_results/OF9B/rices_find_by_ranking_similar_text/demo_mode_gold/visual_demo_mode_random/ok_vqa/shot_32/2023-10-31_04-25-49/ok_vqa_demos_and_predictions_shots_32_seed_52.json"
+    okvqa_rice_image_result = ""
+    okvqa_rice_image_demos = ""
+    okvqa_rice_image_ranking_text_result = ""
+    okvqa_rice_image_ranking_text_demos = ""
 
     compare(
-        prediction_one=vqav2_rice_image_demo_only_text_result,
-        prediction_one_comment="vqav2_rice_image_demo_only_text",
-        demo_one=vqav2_rice_image_demo_only_text_demos,
+        prediction_one=okvqa_rice_image_result,
+        prediction_one_comment="okvqa_rice_image",
+        demo_one=okvqa_rice_image_demos,
 
-        prediction_two=vqav2_rice_image_ranking_text_demo_only_text_result,
-        prediction_two_comment="vqav2_rice_image_ranking_text_demo_only_text",
-        demo_two=vqav2_rice_image_ranking_text_demo_only_text_demos,
-        task="vqav2",
+        prediction_two=okvqa_rice_image_ranking_text_result,
+        prediction_two_comment="okvqa_rice_image_ranking_text",
+        demo_two=okvqa_rice_image_ranking_text_demos,
+        task="okvqa",
     )

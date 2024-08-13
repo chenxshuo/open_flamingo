@@ -9,6 +9,7 @@ import os
 import json
 
 from open_flamingo import create_model_and_transforms
+from open_flamingo.eval.utils import get_predicted_classnames
 from huggingface_hub import hf_hub_download
 import torch
 from PIL import Image
@@ -41,10 +42,16 @@ def load_model(model_name, device):
         "cross_attn_every_n_layers": 2
     }
 
-    MODEL_DICT_3B = {
+    MODEL_DICT_3BI = {
         "language": "anas-awadalla/mpt-1b-redpajama-200b-dolly",
         "flamingo": "openflamingo/OpenFlamingo-3B-vitl-mpt1b-langinstruct",
-        "cross_attn_every_n_layers": 1
+        "cross_attn_every_n_layers": 1,
+    }
+
+    MODEL_DICT_3B = {
+        "language": "anas-awadalla/mpt-1b-redpajama-200b",
+        "cross_attn_every_n_layers": 1,
+        "checkpoint_path": "/dss/dssmcmlfs01/pn34sa/pn34sa-dss-0000/.cache/huggingface/hub/models--openflamingo--OpenFlamingo-3B-vitl-mpt1b/snapshots/ed3a0c3190b2fc2d1c39630738896d4e73ce1bbc/checkpoint.pt"
     }
 
     if model_name == "9BI":
@@ -56,8 +63,10 @@ def load_model(model_name, device):
     elif model_name == "4B":
         raise NotImplementedError
     elif model_name == "3BI":
-        MODEL = MODEL_DICT_3B
+        MODEL = MODEL_DICT_3BI
     elif model_name == "3B":
+        MODEL = MODEL_DICT_3B
+    else:
         raise NotImplementedError
 
     model, image_processor, tokenizer = create_model_and_transforms(
@@ -69,11 +78,8 @@ def load_model(model_name, device):
     )
     tokenizer.padding_side = "left"  # For generation padding tokens should be on the left
     # grab model checkpoint from huggingface hub
-    huggingface_hub.login(
-        token="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"
-    )
-    checkpoint_path = hf_hub_download(MODEL["flamingo"], "checkpoint.pt")
-    model.load_state_dict(torch.load(checkpoint_path), strict=False)
+
+    model.load_state_dict(torch.load(MODEL["checkpoint_path"]), strict=False)
     model.eval()
     model.to(device)
 
@@ -81,12 +87,15 @@ def load_model(model_name, device):
 
 
 def load_image(image_url):
-    image = Image.open(
-        requests.get(
-            image_url,
-            stream=True
-        ).raw
-    )
+    if image_url.startswith("http"):
+        image = Image.open(
+            requests.get(
+                image_url,
+                stream=True
+            ).raw
+        )
+    else:
+        image = Image.open(image_url).convert("RGB")
     return image
 
 
@@ -156,6 +165,25 @@ def generate(vision_x, input_ids, attention_mask, model, tokenizer):
     answer = re.split(", ", answer, 1)[0]
     print(f"Answer:|{answer}|")
 
+def classification(vision_x, input_ids, model, all_class_names, class_id_to_name):
+    logprobs = []
+    logprobs.append(
+        model.get_rank_classifications(
+            input_ids,
+            vision_x,
+            all_class_names,
+            use_cache=True,
+            normalize_length=True,
+        )
+    )
+    logprobs = torch.mean(torch.stack(logprobs, dim=-1), dim=-1)
+
+    predicted_classnames, predicted_logprobs = get_predicted_classnames(
+        logprobs,
+        5,
+        class_id_to_name,
+    )
+    return predicted_classnames
 
 def load_ood_dataset():
     d = load_dataset("cc_news")

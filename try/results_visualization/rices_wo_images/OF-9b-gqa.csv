@@ -1,8 +1,8 @@
 settings,shots,performance
-standard, 4,36.32
-standard, 8, 37.74
-standard, 16, 38.28
-standard, 32, 37.85
+random, 4,36.32
+random, 8, 37.74
+random, 16, 38.28
+random, 32, 37.85
 RICES, 4, 36.92
 RICES, 8, 38.54
 RICES, 16, 40.16
