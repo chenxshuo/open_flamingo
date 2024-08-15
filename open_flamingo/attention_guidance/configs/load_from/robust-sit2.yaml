@@ -1,3 +1,14 @@
 #dir:  ./outputs/of-9b/train/imagenet-1k/class_8/rob_prompt_True/media_prompt_8_text_prompt_3/2024-07-24/10-35-23-optimistic-Shirelle/epoch_25_accuracy_0.99
-dir: ./outputs/of-9b/train/imagenet-1k/class_8/rob_prompt_True/media_prompt_8_text_prompt_3/2024-07-24/11-54-22-chilly-Teaya/epoch_15_accuracy_0.99
-robust_prompting: robust-sit2
+#dir: ./outputs/of-9b/train/imagenet-1k/class_8/rob_prompt_True/media_prompt_8_text_prompt_3/2024-07-24/11-54-22-chilly-Teaya/epoch_15_accuracy_0.99
+#dir: ../prompt_train/experiments/model_OF-9B/evaluate_dataset_imagenet-1k/classes_8/use_robust_prompting_True/media_prompts_8/text_prompts_per_media_3/2024-06-07_05-35-27/epoch_19_accuracy_0.99 # previous weights
+dir: /dss/dssmcmlfs01/pn34sa/pn34sa-dss-0000/robustness/in-context-open-flamingo/open_flamingo_2-0/open_flamingo/attention_guidance/outputs/of-9b/train/imagenet-1k/class_8/rob_prompt_True/media_prompt_8_text_prompt_3/2024-08-15/10-36-53-cumbersome-Shua/epoch_17_accuracy_0.9875 # replicate previous exp
+
+number_of_classes: 8
+number_of_media_prompts: 8
+number_of_text_prompts_per_media: 3
+
+
+robust_prompting: #though trained using robust, do not add robust features during evaluation
+  use_robust_prompting: False
+  number_of_robust_prompts: 0
+  robust_scales:

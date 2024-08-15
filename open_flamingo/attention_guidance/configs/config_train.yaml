@@ -1,7 +1,8 @@
 defaults:
   - model: of-9b
-#  - robust_prompting: robust-sit2
-  - robust_prompting: no-robust
+  - robust_prompting: robust-sit2
+#  - robust_prompting: no-robust
+#  - robust_prompting: robust-scales
   - evaluate_dataset: imagenet-1k
   - override hydra/job_logging: custom
   - override hydra/hydra_logging: colorlog
@@ -17,9 +18,9 @@ hydra:
         filename: ${hydra.run.dir}/log.log
 
 batch_size: 16
-device: cuda:0
-number_of_classes: 32
-number_of_media_prompts: 4
+device: cuda:1
+number_of_classes: 8
+number_of_media_prompts: 8
 number_of_text_prompts_per_media: 3
 epochs: 50
 

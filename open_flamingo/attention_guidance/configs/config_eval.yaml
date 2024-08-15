@@ -1,7 +1,9 @@
 defaults:
   - model: of-9b
-  - evaluate_dataset: imagenet-v2
-  - load_from: baseline-class-32-m4-t3
+  - evaluate_dataset: imagenet-s
+#  - load_from: baseline-class-32-m4-t3
+#  - load_from: baseline-class-8-m8-t3
+  - load_from: robust-sit2
   - override hydra/job_logging: custom
   - override hydra/hydra_logging: colorlog
   - _self_
@@ -19,7 +21,7 @@ data_base: /dss/dssmcmlfs01/pn34sa/pn34sa-dss-0000/robustness/datasets
 
 device: cuda:0
 batch_size: 32
-eval_novel_classes: False
+eval_novel_classes: True
 evaluation_mode: classification # or 'generation'
 only_load_and_eval: True
 
@@ -33,20 +35,4 @@ icl:
     rices_vision_encoder: ViT-L-14
     rices_vision_encoder_pretrained: openai
     rices_find_by_ranking_similar_text_similar_in_top_k: 200
-
-#evaluate_dataset:
-#  normal:
-#    - imagenet-1k
-#    - imagenet-a
-#    - imagenet-r
-#    - imagenet-v2
-#    - imagenet-s
-#    - imagenet-c
-#  novel:
-#    - imagenet-1k-novel
-#    - imagenet-a-novel
-#    - imagenet-r-novel
-#    - imagenet-v2-novel
-#    - imagenet-s-novel
-#    - imagenet-c-novel
 
