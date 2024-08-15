@@ -195,7 +195,7 @@ def build_robust_prompting(robust_prompting_cfg, img, image_processor):
         vision_x = get_multi_scales_vision_tensor_center_crop(
             img, image_processor, robust_prompting_cfg.robust_scales
         )
-    elif robust_prompting_cfg.plan == "sit2":
+    elif robust_prompting_cfg.plan == "sit":
         vision_x = get_sit_vision_tensor(img, image_processor)
     else:
         raise ValueError
@@ -271,6 +271,23 @@ def get_multi_scales_vision_tensor(image, image_processor, scales):
     return vision_x
 
 def get_sit_vision_tensor(image, image_processor):
+    # original img + 3 transformed img
+    from open_flamingo.prompt_train.sit.sit_transform import blocktransform
+    vision_x = []
+    vision_x.append(image_processor(image).unsqueeze(0))
+    pil_to_tensor = T.functional.pil_to_tensor
+    tensor_to_pil = T.functional.to_pil_image
+    img_tensor = pil_to_tensor(image).unsqueeze_(0)
+    for _ in range(3):
+        transformed_img_tensor = blocktransform(img_tensor).squeeze_(0)
+        transformed_img = tensor_to_pil(transformed_img_tensor)
+        vision_x.append(image_processor(transformed_img).unsqueeze(0))
+    vision_x = torch.cat(vision_x, dim=0)
+    vision_x = vision_x.unsqueeze(1).unsqueeze(0)
+    return vision_x
+
+def get_sit2_vision_tensor(image, image_processor):
+    # no original img + 3 transformed img
     from open_flamingo.prompt_train.sit.sit_transform import blocktransform
     vision_x = []
     # vision_x.append(image_processor(image).unsqueeze(0))
