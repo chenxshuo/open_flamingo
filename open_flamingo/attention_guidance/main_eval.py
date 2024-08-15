@@ -11,6 +11,7 @@ import argparse
 import logging
 import huggingface_hub
 import os
+import numpy as np
 import json
 from torch import optim
 from open_flamingo import (
@@ -218,6 +219,15 @@ def main_train(cfg: DictConfig) -> None:
 
 @hydra.main(version_base=None, config_path="configs", config_name="config_eval")
 def main_eval(cfg: DictConfig) -> None:
+    # Set randomness
+    if cfg.seed:
+        np.random.seed(cfg.seed)
+        torch.manual_seed(cfg.seed)
+        torch.cuda.manual_seed(cfg.seed)
+        torch.cuda.manual_seed_all(cfg.seed)
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
+
     logger.info(f"Config:\n{OmegaConf.to_yaml(cfg)}")
     exp_dir = HydraConfig.get().run.dir
     logger.info(f"Exp Dir: {exp_dir}")

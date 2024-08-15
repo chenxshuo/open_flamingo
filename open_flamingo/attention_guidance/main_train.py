@@ -8,6 +8,7 @@ from omegaconf import DictConfig, OmegaConf, open_dict
 from hydra.core.hydra_config import HydraConfig
 from utils import get_id_func, prepare_one_training_batch, prepare_one_eval_batch
 import argparse
+import numpy as np
 import logging
 import huggingface_hub
 import os
@@ -42,6 +43,15 @@ OmegaConf.register_new_resolver("generate_job_id", get_id_func())
 
 @hydra.main(version_base=None, config_path="configs", config_name="config_train")
 def main_train(cfg: DictConfig) -> None:
+    # Set randomness
+    if cfg.seed:
+        np.random.seed(cfg.seed)
+        torch.manual_seed(cfg.seed)
+        torch.cuda.manual_seed(cfg.seed)
+        torch.cuda.manual_seed_all(cfg.seed)
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
+
     logger.info(f"Config:\n{OmegaConf.to_yaml(cfg)}")
     exp_dir = HydraConfig.get().run.dir
     logger.info(f"Exp Dir: {exp_dir}")
