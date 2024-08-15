@@ -197,6 +197,8 @@ def build_robust_prompting(robust_prompting_cfg, img, image_processor):
         )
     elif robust_prompting_cfg.plan == "sit":
         vision_x = get_sit_vision_tensor(img, image_processor)
+    elif robust_prompting_cfg.plan == "sit2":
+        vision_x = get_sit2_vision_tensor(img, image_processor)
     else:
         raise ValueError
 
