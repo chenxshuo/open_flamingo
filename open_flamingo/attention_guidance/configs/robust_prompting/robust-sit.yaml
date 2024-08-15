@@ -1,3 +1,3 @@
 use_robust_prompting: True
-plan: sit2
+plan: sit
 number_of_robust_prompts: 4

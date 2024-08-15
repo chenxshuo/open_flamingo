@@ -297,11 +297,13 @@ class MaskedCrossAttention(nn.Module):
                 part[:, (torch.max(media_time) - self.number_of_robust_media)*n:] = True
                 text_to_media_mask[text_col_mask] = part
 
-                ATTENTION_GUIDANCE_FLAG = True
+                # try out attention guidance
+                # import ipdb; ipdb.set_trace()
+                ATTENTION_GUIDANCE_FLAG = False
                 if ATTENTION_GUIDANCE_FLAG:
                     amplify = 1.3
-                    rob_start_ind = (torch.max(media_time) - self.number_of_robust_media) * n
-                    sim[:, :, :, rob_start_ind:] = sim[:, :, :, rob_start_ind:] * 1.3
+                    rob_start_ind = (torch.max(media_time) - (self.number_of_robust_media-1)) * n # the 1st is the original image, only amplify the rest
+                    sim[:, :, :, rob_start_ind:] = sim[:, :, :, rob_start_ind:] * amplify
 
             # import ipdb;ipdb.set_trace()
             sim = sim.masked_fill(~text_to_media_mask, -torch.finfo(sim.dtype).max)

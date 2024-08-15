@@ -1,5 +1,5 @@
 robust_prompting:
-  use_robust_prompting: True
+  use_robust_prompting: True # do not use robust during evaluation
   plan: scales
   robust_scales: #useless for now, hard encoding
     - 224
