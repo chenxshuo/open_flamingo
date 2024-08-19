@@ -3,10 +3,13 @@
 """Robust prompting with attention guidance."""
 
 import logging
+import hashlib
 import hydra
+import wandb
+import pickle
 from omegaconf import DictConfig, OmegaConf, open_dict
 from hydra.core.hydra_config import HydraConfig
-from utils import get_id_func, prepare_one_training_batch, prepare_one_eval_batch
+from utils import get_id_func, prepare_one_training_batch, prepare_one_eval_batch, object2sha1
 import argparse
 import numpy as np
 import logging
@@ -14,6 +17,7 @@ import huggingface_hub
 import os
 import json
 from torch import optim
+import random
 from open_flamingo import (
     create_model_and_transforms,
     create_model_and_transforms_w_prompt,
@@ -39,16 +43,19 @@ import getpass
 logger = logging.getLogger(__name__)
 
 OmegaConf.register_new_resolver("generate_job_id", get_id_func())
-
+wandb.login()
 
 @hydra.main(version_base=None, config_path="configs", config_name="config_train")
 def main_train(cfg: DictConfig) -> None:
     # Set randomness
     if cfg.seed:
+        random.seed(cfg.seed)
         np.random.seed(cfg.seed)
         torch.manual_seed(cfg.seed)
         torch.cuda.manual_seed(cfg.seed)
         torch.cuda.manual_seed_all(cfg.seed)
+        os.environ["CUBLAS_WORKSPACE_CONFIG"]=":4096:8"
+        torch.use_deterministic_algorithms(True)
         torch.backends.cudnn.deterministic = True
         torch.backends.cudnn.benchmark = False
 
@@ -76,6 +83,10 @@ def main_train(cfg: DictConfig) -> None:
     logger.info("Model loaded")
 
     params_to_optimize = [model.soft_prompt_media, model.soft_prompt_text]
+    if cfg.debug.value:
+        logger.critical(f"SHA1 of learnable media prompt {object2sha1(model.soft_prompt_media.detach().cpu().numpy())}")
+        logger.critical(f"SHA1 of learnable text prompt {object2sha1(model.soft_prompt_text.detach().cpu().numpy())}")
+
     optimizer = optim.Adam(params_to_optimize, lr=cfg.lr)
 
     train_loader, train_dataset = get_train_data_loader(cfg)
@@ -86,6 +97,12 @@ def main_train(cfg: DictConfig) -> None:
     patience_max = 5
     best_dir = ""
     prompt_fn = None
+
+    batch_size = cfg.batch_size if not cfg.debug.value else cfg.debug.batch_size
+    epochs = cfg.epochs if not cfg.debug.value else cfg.debug.epochs
+    eval_period = cfg.eval_period if not cfg.debug.value else cfg.debug.eval_period
+    if cfg.debug.value:
+        logger.critical("Debug mode is on.")
 
     if cfg.icl.do_icl:
         num_shots = cfg.icl.num_shots
@@ -98,7 +115,7 @@ def main_train(cfg: DictConfig) -> None:
             rices_dataset = RICES(
                 train_dataset,
                 model.device,
-                cfg.batch_size,
+                batch_size,
                 cached_features=cfg.icl.rices.cached_features,
                 vision_encoder_path=cfg.rices.rices_vision_encoder_path,
                 vision_encoder_pretrained=cfg.rices.rices_vision_encoder_pretrained,
@@ -107,11 +124,11 @@ def main_train(cfg: DictConfig) -> None:
         else:
             query_set = get_query_set(train_dataset, len(train_dataset))
 
-    for epoch in trange(cfg.epochs, desc="Epochs"):
+    for epoch in trange(epochs, desc="Epochs"):
         model.train()
         tbar = tqdm(train_loader, leave=False)
 
-        for batch in tbar:
+        for b, batch in enumerate(tbar):
             optimizer.zero_grad()
             if cfg.icl.do_icl:
                 if cfg.icl.rices.do_rices:
@@ -142,13 +159,21 @@ def main_train(cfg: DictConfig) -> None:
                     image_processor,
                     robust_prompting_cfg=cfg.robust_prompting,
                 )
+
+            if cfg.debug.value:
+                logger.critical(f"Epoch: {epoch}, Batch: {b}")
+                lang_input = lang_x["input_ids"]
+                lang_input_sha = object2sha1(lang_input.cpu().numpy())
+                img_path_sha = object2sha1(batch["img_path"])
+                vision_x_sha = object2sha1(vision_x.cpu().numpy())
+                logger.critical(f"SHA-1 hash of lang_input: {lang_input_sha}")
+                logger.critical(f"SHA-1 hash of img_path: {img_path_sha}")
+                logger.critical(f"SHA-1 hash of vision_x: {vision_x_sha}")
+
             vision_x = vision_x.to(device)
             lang_x = lang_x.to(device)
 
             labels = lang_x["input_ids"].clone().to(vision_x.device)
-            # logger.debug(f"labels[0]: {labels[0]}")
-
-            # logger.debug(f"ori labels: {labels}")
             media_token_id = tokenizer.encode("<image>")[-1]
             endofchunk_token_id = tokenizer.encode("<|endofchunk|>")[-1]
 
@@ -168,9 +193,6 @@ def main_train(cfg: DictConfig) -> None:
                         labels[i, label_idx] = -100
                     label_idx += 1
 
-            # logger.debug(f"labels[0]: {labels[0]}")
-
-            # assert False
             forward_loss = model(
                 vision_x=vision_x,
                 lang_x=lang_x["input_ids"],
@@ -181,7 +203,7 @@ def main_train(cfg: DictConfig) -> None:
             optimizer.step()
             tbar.set_description(f"Optimizing, loss: {forward_loss.item():.6f}")
             tbar.refresh()
-        if (epoch + 1) % 2 == 0:
+        if (epoch + 1) % eval_period == 0:
             accuracy = eval(
                 model,
                 eval_loader,
@@ -193,15 +215,16 @@ def main_train(cfg: DictConfig) -> None:
                 image_processor=image_processor,
             )
 
-            best_dir = f"{exp_dir}/epoch_{epoch}_accuracy_{accuracy}"
-            os.makedirs(best_dir)
+            ckpt_dir = f"{exp_dir}/epoch_{epoch}_accuracy_{accuracy}"
+            os.makedirs(ckpt_dir)
             soft_prompt_text = model.soft_prompt_text.detach()
             soft_prompt_media = model.soft_prompt_media.detach()
-            torch.save(soft_prompt_media, f"{best_dir}/soft_prompt_media.pt")
-            torch.save(soft_prompt_text, f"{best_dir}/soft_prompt_text.pt")
+            torch.save(soft_prompt_media, f"{ckpt_dir}/soft_prompt_media.pt")
+            torch.save(soft_prompt_text, f"{ckpt_dir}/soft_prompt_text.pt")
 
             if accuracy > best_accuracy:
                 best_accuracy = accuracy
+                best_dir = ckpt_dir
                 patience = 0
                 logger.info(
                     f"New best accuracy: {accuracy} at epoch {epoch}; saving to {best_dir}"
@@ -217,14 +240,8 @@ def main_train(cfg: DictConfig) -> None:
             logger.info(f"Epoch {epoch} accuracy: {accuracy}")
             with open(f"{exp_dir}/accuracy.txt", "a") as f:
                 f.write(f"Epoch {epoch} accuracy: {accuracy}\n")
-    logger.info(f"Exit training, load from best dir {best_dir} and evaluate.")
-    model.soft_prompt_media = torch.load(f"{best_dir}/soft_prompt_media.pt")
-    model.soft_prompt_text = torch.load(f"{best_dir}/soft_prompt_text.pt")
-    accuracy = eval(model, eval_loader, device, tokenizer, cfg.evaluation_mode, cfg=cfg,
-                    train_dataset=train_dataset, image_processor=image_processor,
-                    )
-    logger.info(f"Best accuracy: {accuracy}")
 
+    logger.info(f"Best accuracy: {best_accuracy}; saved to {best_dir}")
 
 @hydra.main(version_base=None, config_path="configs", config_name="config_eval")
 def main_eval(cfg: DictConfig) -> None:
@@ -284,7 +301,8 @@ def get_train_data_loader(cfg):
         image_dir_path=cfg.train_dataset.image_dir,
         annotations_path=cfg.train_dataset.annotation_path,
     )
-    train_loader = prepare_loader(train_dataset, cfg.batch_size, num_workers=cfg.train_dataset.num_workers)
+    batch_size = cfg.batch_size if not cfg.debug.value else cfg.debug.batch_size
+    train_loader = prepare_loader(train_dataset, batch_size, num_workers=cfg.train_dataset.num_workers)
     return train_loader, train_dataset
 
 
@@ -299,7 +317,8 @@ def get_val_data_loader(cfg):
             image_dir_path=cfg.evaluate_dataset.base.image_dir_path,
             annotations_path=cfg.evaluate_dataset.base.annotation_path,
         )
-    eval_loader = prepare_loader(eval_dataset, cfg.batch_size, num_workers=cfg.evaluate_dataset.num_workers)
+    batch_size = cfg.batch_size if not cfg.debug.value else cfg.debug.batch_size
+    eval_loader = prepare_loader(eval_dataset, batch_size, num_workers=cfg.evaluate_dataset.num_workers)
     return eval_loader
 
 
@@ -320,6 +339,8 @@ def eval(
     total = 0
     prediction_and_labels_json = {}
 
+    batch_size = cfg.batch_size if not cfg.debug.value else cfg.debug.batch_size
+
     if cfg.icl.do_icl:
         assert (
             train_dataset is not None and cfg.icl.num_shots is not None
@@ -330,7 +351,7 @@ def eval(
             rices_dataset = RICES(
                 train_dataset,
                 model.device,
-                cfg.batch_size,
+                batch_size,
                 cached_features=cfg.icl.rices.cached_features,
                 vision_encoder_path=cfg.rices.rices_vision_encoder_path,
                 vision_encoder_pretrained=cfg.rices.rices_vision_encoder_pretrained,
@@ -339,7 +360,9 @@ def eval(
         else:
             query_set = get_query_set(train_dataset, len(train_dataset))
 
-    for batch in tbar:
+    if cfg.debug.value:
+        eval_batch_num = cfg.debug.eval_batch_num
+    for i, batch in enumerate(tbar):
         if cfg.icl.do_icl:
             if cfg.icl.rices.do_rices:
                 batch_demo_samples = rices_dataset.find(
@@ -371,6 +394,10 @@ def eval(
                 image_processor,
                 robust_prompting_cfg=cfg.robust_prompting,
             )
+
+        if cfg.debug.value and eval_batch_num!= -1 and  i >= eval_batch_num:
+            logger.critical(f"Debug mode is on. Only evaluate {eval_batch_num} batches.")
+            break
 
         vision_x = vision_x.to(device)
         lang_x = lang_x.to(device)

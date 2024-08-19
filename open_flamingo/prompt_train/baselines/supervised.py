@@ -12,6 +12,8 @@ from torch import optim
 import getpass
 import time
 import torch
+import numpy as np
+import random
 import os
 from tqdm import tqdm, trange
 from torch.utils.data import Dataset
@@ -106,12 +108,23 @@ def prepare_loader(train_dataset, batch_size, num_workers, shuffle=True):
     """
     Prepare a DataLoader for training.
     """
+
+    # def seed_worker(worker_id):
+    #     worker_seed = torch.initial_seed() % 2 ** 32
+    #     np.random.seed(worker_seed)
+    #     random.seed(worker_seed)
+    #
+    # g = torch.Generator()
+    # g.manual_seed(0)
+
     loader = torch.utils.data.DataLoader(
         train_dataset,
         batch_size=batch_size,
         shuffle=shuffle,
         num_workers=num_workers,
         collate_fn=custom_collate_fn,
+        # worker_init_fn=seed_worker,
+        # generator=g,
     )
     return loader
 

@@ -85,11 +85,14 @@ def blocktransform(x, choice=-1):
     x_axis = [0, ] + np.random.choice(list(range(1, w)), num_block - 1, replace=False).tolist() + [w, ]
     y_axis.sort()
     x_axis.sort()
+    # logger.info(f"x_axis: {x_axis}")
+    # logger.info(f"y_axis: {y_axis}")
 
     x_copy = x.clone()
     for i, idx_x in enumerate(x_axis[1:]):
         for j, idx_y in enumerate(y_axis[1:]):
             chosen = choice if choice >= 0 else np.random.randint(0, high=len(op), dtype=np.int32)
+            # logger.info(f"i = {i} idx_x = {idx_x}, j = {j}, idx_y = {idx_y}, chosen = {chosen}")
             x_copy[:, :, x_axis[i]:idx_x, y_axis[j]:idx_y] = op[chosen](
                 x_copy[:, :, x_axis[i]:idx_x, y_axis[j]:idx_y])
 
@@ -100,3 +103,14 @@ def transform(self, x, **kwargs):
     Scale the input for BlockShuffle
     """
     return torch.cat([self.blocktransform(x) for _ in range(self.num_copies)])
+
+
+def random_np():
+    np_y = np.random.choice(list(range(1, 224)), 3 - 1, replace=False).tolist()
+    np_x = np.random.choice(list(range(1, 224)), 3 - 1, replace=False).tolist()
+    # logger.info(f"np_y: {np_y}")
+    # logger.info(f"np_x: {np_x}")
+    np_choice = np.random.randint(0, high=6, dtype=np.int32)
+    # logger.info(f"Random choice: {np_choice}")
+
+    return f"np_y: {np_y}, np_x: {np_x}, Random choice: {np_choice}"

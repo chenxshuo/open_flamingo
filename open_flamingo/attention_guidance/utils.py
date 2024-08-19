@@ -5,6 +5,8 @@
 import logging
 from dataclasses import dataclass
 import torch
+import hashlib
+import pickle
 from almost_unique_id import generate_id
 from torchvision import transforms as T
 logger = logging.getLogger(__name__)
@@ -303,3 +305,9 @@ def get_sit2_vision_tensor(image, image_processor):
     vision_x = torch.cat(vision_x, dim=0)
     vision_x = vision_x.unsqueeze(1).unsqueeze(0)
     return vision_x
+
+
+def object2sha1(obj):
+    return hashlib.sha1(
+        pickle.dumps(obj)
+    ).hexdigest()
