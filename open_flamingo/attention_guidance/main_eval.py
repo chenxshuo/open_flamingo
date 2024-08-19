@@ -84,35 +84,35 @@ def main_eval(cfg: DictConfig) -> None:
     model.to(device)
     logger.info("Model loaded")
 
+    if cfg.evaluate_dataset.name == "group":
+        eval_loader = []
+        for eval_dataset in cfg.evaluate_dataset.datasets:
+            if cfg.eval_novel_classes:
+                eval_loader.append(
+                    get_val_data_loader(eval_dataset.novel, cfg.batch_size, eval_dataset.num_workers))
+            else:
+                eval_loader.append(
+                    get_val_data_loader(eval_dataset.base, cfg.batch_size, eval_dataset.num_workers)
+                )
+    else:
+        if cfg.eval_novel_classes:
+            eval_loader = get_val_data_loader(cfg.evaluate_dataset.novel, cfg.batch_size,
+                                              cfg.evaluate_dataset.num_workers)
+        else:
+            eval_loader = get_val_data_loader(cfg.evaluate_dataset.base, cfg.batch_size,
+                                              cfg.evaluate_dataset.num_workers)
+
+
     if os.path.exists(f"{cfg.load_from.dir}/soft_prompt_media.pt") and os.path.exists(f"{cfg.load_from.dir}/soft_prompt_text.pt"):
         model.soft_prompt_media = torch.load(f"{cfg.load_from.dir}/soft_prompt_media.pt")
         model.soft_prompt_text = torch.load(f"{cfg.load_from.dir}/soft_prompt_text.pt")
-        eval_loader = get_val_data_loader(cfg)
 
-        accuracy = eval(
-            model,
-            eval_loader,
-            device,
-            tokenizer,
-            cfg.evaluation_mode,
-            cfg=cfg,
-            train_dataset=None,
-            image_processor=image_processor,
-        )
-        logger.info(f"Accuracy: {accuracy}; loaded pts from {cfg.load_from.dir}")
-        with open(f"{exp_dir}/accuracy.txt", "w") as f:
-            f.write(f"Accuracy: {accuracy}")
-    else:
-        logger.info(f"Iterate over dirs inside {cfg.load_from.dir} to evaluate")
-        accuracy_record = {}
-        for d in os.listdir(cfg.load_from.dir):
-            if os.path.exists(f"{cfg.load_from.dir}/{d}/soft_prompt_media.pt") and os.path.exists(f"{cfg.load_from.dir}/{d}/soft_prompt_text.pt"):
-                model.soft_prompt_media = torch.load(f"{cfg.load_from.dir}/{d}/soft_prompt_media.pt")
-                model.soft_prompt_text = torch.load(f"{cfg.load_from.dir}/{d}/soft_prompt_text.pt")
-                eval_loader = get_val_data_loader(cfg)
+        if type(eval_loader) == list:
+            for i, loader in enumerate(eval_loader):
+                dataset_name = cfg.evaluate_dataset.datasets[i].name
                 accuracy = eval(
                     model,
-                    eval_loader,
+                    loader,
                     device,
                     tokenizer,
                     cfg.evaluation_mode,
@@ -120,37 +120,97 @@ def main_eval(cfg: DictConfig) -> None:
                     train_dataset=None,
                     image_processor=image_processor,
                 )
-                logger.info(f"Accuracy: {accuracy}; loaded pts from {cfg.load_from.dir}/{d}")
-                accuracy_record[d] = accuracy
+                logger.info(f"Accuracy: {accuracy} on {dataset_name}; loaded pts from {cfg.load_from.dir}")
+                with open(f"{exp_dir}/accuracy_{dataset_name}.txt", "w") as f:
+                    f.write(f"Accuracy: {accuracy}")
+        else:
+            dataset_name = cfg.evaluate_dataset.name
+            accuracy = eval(
+                model,
+                eval_loader,
+                device,
+                tokenizer,
+                cfg.evaluation_mode,
+                cfg=cfg,
+                train_dataset=None,
+                image_processor=image_processor,
+            )
+            logger.info(f"Accuracy: {accuracy} on {dataset_name}; loaded pts from {cfg.load_from.dir}")
+            with open(f"{exp_dir}/accuracy_{dataset_name}.txt", "w") as f:
+                f.write(f"Accuracy: {accuracy}")
+    else:
+        logger.info(f"Iterate over dirs inside {cfg.load_from.dir} to evaluate")
+        accuracy_record = {}
+        for d in os.listdir(cfg.load_from.dir):
+            if os.path.exists(f"{cfg.load_from.dir}/{d}/soft_prompt_media.pt") and os.path.exists(f"{cfg.load_from.dir}/{d}/soft_prompt_text.pt"):
+                logger.info(f"Loading pts from {cfg.load_from.dir}/{d}")
+                model.soft_prompt_media = torch.load(f"{cfg.load_from.dir}/{d}/soft_prompt_media.pt")
+                model.soft_prompt_text = torch.load(f"{cfg.load_from.dir}/{d}/soft_prompt_text.pt")
+                if type(eval_loader) == list:
+                    for i, loader in enumerate(eval_loader):
+                        dataset_name = cfg.evaluate_dataset.datasets[i].name
+                        accuracy = eval(
+                            model,
+                            loader,
+                            device,
+                            tokenizer,
+                            cfg.evaluation_mode,
+                            cfg=cfg,
+                            train_dataset=None,
+                            image_processor=image_processor,
+                        )
+                        logger.info(f"Accuracy: {accuracy} on {dataset_name}; loaded pts from {cfg.load_from.dir}/{d}")
+                        if accuracy_record.get(d):
+                            accuracy_record[d].update({dataset_name: accuracy})
+                        else:
+                            accuracy_record[d] = {dataset_name: accuracy}
+                else:
+                    dataset_name = cfg.evaluate_dataset.name
+                    accuracy = eval(
+                        model,
+                        eval_loader,
+                        device,
+                        tokenizer,
+                        cfg.evaluation_mode,
+                        cfg=cfg,
+                        train_dataset=None,
+                        image_processor=image_processor,
+                    )
+                    logger.info(f"Accuracy: {accuracy}; loaded pts from {cfg.load_from.dir}/{d}")
+                    if accuracy_record.get(d):
+                        accuracy_record[d].update({dataset_name: accuracy})
+                    else:
+                        accuracy_record[d] = {dataset_name: accuracy}
+            else:
+                raise ValueError()
+
+            logger.info(f"====================")
+
         with open(f"{exp_dir}/accuracy.txt", "w") as f:
             f.write(json.dumps(accuracy_record, indent=4))
-        max_accuracy = max(accuracy_record.values())
-        max_accuracy_dir = max(accuracy_record, key=accuracy_record.get)
-        logger.info(f"Max accuracy: {max_accuracy} in {max_accuracy_dir}")
-        logger.info(f"Exp dir: {exp_dir}")
-def get_train_data_loader(cfg):
-    train_dataset = ImageNet1KDataset(
-        image_dir_path=cfg.train_dataset.image_dir,
-        annotations_path=cfg.train_dataset.annotation_path,
+        for dir, record in accuracy_record.items():
+            logger.info(f"Dir: {dir}")
+            for dataset, accuracy in record.items():
+                logger.info(f"Dataset: {dataset}, Accuracy: {accuracy}")
+            # max_accuracy = max(accuracy_record.values())
+            # max_accuracy_dir = max(accuracy_record, key=accuracy_record.get)
+            # logger.info(f"Max accuracy: {max_accuracy} in {max_accuracy_dir}")
+            # logger.info(f"Exp dir: {exp_dir}")
+
+
+def get_val_data_loader(evaluate_dataset, batch_size, num_workers):
+    # if cfg.eval_novel_classes:
+    #     eval_dataset = ImageNet1KDataset(
+    #         image_dir_path=cfg.evaluate_dataset.novel.image_dir_path,
+    #         annotations_path=cfg.evaluate_dataset.novel.annotation_path,
+    #     )
+    # else:
+    eval_dataset = ImageNet1KDataset(
+        image_dir_path=evaluate_dataset.image_dir_path,
+        annotations_path=evaluate_dataset.annotation_path,
     )
-    train_loader = prepare_loader(train_dataset, cfg.batch_size, num_workers=cfg.train_dataset.num_workers)
-    return train_loader, train_dataset
-
-
-def get_val_data_loader(cfg):
-    if cfg.eval_novel_classes:
-        eval_dataset = ImageNet1KDataset(
-            image_dir_path=cfg.evaluate_dataset.novel.image_dir_path,
-            annotations_path=cfg.evaluate_dataset.novel.annotation_path,
-        )
-    else:
-        eval_dataset = ImageNet1KDataset(
-            image_dir_path=cfg.evaluate_dataset.base.image_dir_path,
-            annotations_path=cfg.evaluate_dataset.base.annotation_path,
-        )
-    eval_loader = prepare_loader(eval_dataset, cfg.batch_size, num_workers=cfg.evaluate_dataset.num_workers)
+    eval_loader = prepare_loader(eval_dataset, batch_size, num_workers=num_workers)
     return eval_loader
-
 
 def eval(
     model,
