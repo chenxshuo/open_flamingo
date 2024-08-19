@@ -1,6 +1,6 @@
 defaults:
   - model: of-9b
-  - evaluate_dataset: imagenet-s
+  - evaluate_dataset: group
 #  - load_from: baseline-class-32-m4-t3
 #  - load_from: baseline-class-8-m8-t3
   - load_from: robust-sit2

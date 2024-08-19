@@ -3,7 +3,7 @@ defaults:
   - robust_prompting: robust-sit2
 #  - robust_prompting: no-robust
 #  - robust_prompting: robust-scales
-  - evaluate_dataset: imagenet-1k
+  - evaluate_dataset: group
   - override hydra/job_logging: custom
   - override hydra/hydra_logging: colorlog
   - _self_
