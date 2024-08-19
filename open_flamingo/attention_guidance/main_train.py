@@ -62,6 +62,21 @@ def main_train(cfg: DictConfig) -> None:
     logger.info(f"Config:\n{OmegaConf.to_yaml(cfg)}")
     exp_dir = HydraConfig.get().run.dir
     logger.info(f"Exp Dir: {exp_dir}")
+    exp_id = exp_dir.split("/")[-1]
+    exp_name = "-".join(exp_id.split("-")[-2:])
+
+    # wandb.config = OmegaConf.to_container(
+    #     cfg, resolve=True, throw_on_missing=True
+    # )
+    run = wandb.init(
+        project=cfg.wandb.project,
+        name=exp_name,
+        id=exp_id,
+        save_code=True,
+        dir=exp_dir,
+        config=OmegaConf.to_container(cfg, resolve=True, throw_on_missing=True),
+    )
+
     device = torch.device(cfg.device)
     model, image_processor, tokenizer = create_model_and_transforms_w_prompt(
         number_of_text_prompts=cfg.number_of_text_prompts_per_media * cfg.number_of_media_prompts,
@@ -203,6 +218,11 @@ def main_train(cfg: DictConfig) -> None:
             optimizer.step()
             tbar.set_description(f"Optimizing, loss: {forward_loss.item():.6f}")
             tbar.refresh()
+            wandb.log({
+                "train/train_loss": forward_loss.item(),
+                "train/epoch": epoch,
+            })
+
         if (epoch + 1) % eval_period == 0:
             accuracy = eval(
                 model,
@@ -241,60 +261,14 @@ def main_train(cfg: DictConfig) -> None:
             with open(f"{exp_dir}/accuracy.txt", "a") as f:
                 f.write(f"Epoch {epoch} accuracy: {accuracy}\n")
 
+            wandb.log({
+                "eval/accuracy": accuracy,
+                "eval/epoch": epoch,
+            })
+
     logger.info(f"Best accuracy: {best_accuracy}; saved to {best_dir}")
-
-@hydra.main(version_base=None, config_path="configs", config_name="config_eval")
-def main_eval(cfg: DictConfig) -> None:
-    logger.info(f"Config:\n{OmegaConf.to_yaml(cfg)}")
-    exp_dir = HydraConfig.get().run.dir
-    logger.info(f"Exp Dir: {exp_dir}")
-    device = torch.device(cfg.device)
-
-    with open_dict(cfg):
-        cfg.update({
-            "number_of_text_prompts_per_media": cfg.load_from.number_of_text_prompts_per_media,
-            "number_of_classes": cfg.load_from.number_of_classes,
-            "number_of_media_prompts": cfg.load_from.number_of_media_prompts,
-            "robust_prompting": cfg.load_from.robust_prompting,
-        })
-
-    model, image_processor, tokenizer = create_model_and_transforms_w_prompt(
-        number_of_text_prompts=cfg.number_of_text_prompts_per_media * cfg.number_of_media_prompts,
-        number_of_media_prompts=cfg.number_of_media_prompts,
-        clip_vision_encoder_path="ViT-L-14",
-        clip_vision_encoder_pretrained="openai",
-        lang_encoder_path=cfg.model.language,
-        tokenizer_path=cfg.model.language,
-        cross_attn_every_n_layers=cfg.model.cross_attn_every_n_layers,
-        use_robust_prompting=cfg.robust_prompting.use_robust_prompting,
-        number_of_robust_media=cfg.robust_prompting.number_of_robust_prompts,
-        device=device,
-        do_icl=cfg.icl.do_icl,
-        num_shots=cfg.icl.num_shots,
-        icl_insertion_position=cfg.icl.icl_insertion_position,
-    )
-    model.load_state_dict(torch.load(cfg.model.checkpoint_path), strict=True)
-    model.to(device)
-    logger.info("Model loaded")
-    model.soft_prompt_media = torch.load(f"{cfg.load_from.dir}/soft_prompt_media.pt")
-    model.soft_prompt_text = torch.load(f"{cfg.load_from.dir}/soft_prompt_text.pt")
-    # train_loader, train_dataset = get_train_data_loader(cfg)
-    eval_loader = get_val_data_loader(cfg)
-
-    accuracy = eval(
-        model,
-        eval_loader,
-        device,
-        tokenizer,
-        cfg.evaluation_mode,
-        cfg=cfg,
-        train_dataset=None,
-        image_processor=image_processor,
-    )
-    logger.info(f"Accuracy: {accuracy}; loaded pts from {cfg.load_from.dir}")
-    with open(f"{exp_dir}/accuracy.txt", "w") as f:
-        f.write(f"Accuracy: {accuracy}")
-
+    wandb.run.summary["best_accuracy"] = best_accuracy
+    wandb.run.summary["best_dir"] = best_dir
 
 def get_train_data_loader(cfg):
     train_dataset = ImageNet1KDataset(

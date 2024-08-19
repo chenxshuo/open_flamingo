@@ -44,6 +44,10 @@ train_dataset:
 
 evaluation_mode: classification # or 'generation'
 
+wandb:
+  project: robust_prompting
+
+
 icl:
   do_icl: False
   num_shots: 4
