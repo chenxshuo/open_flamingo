@@ -65,9 +65,6 @@ def main_train(cfg: DictConfig) -> None:
     exp_id = exp_dir.split("/")[-1]
     exp_name = "-".join(exp_id.split("-")[-2:])
 
-    # wandb.config = OmegaConf.to_container(
-    #     cfg, resolve=True, throw_on_missing=True
-    # )
     run = wandb.init(
         project=cfg.wandb.project,
         name=exp_name,
@@ -76,6 +73,18 @@ def main_train(cfg: DictConfig) -> None:
         dir=exp_dir,
         config=OmegaConf.to_container(cfg, resolve=True, throw_on_missing=True),
     )
+
+    def code_to_include(p):
+        is_py = p.endswith(".py")
+        dirs = ["attention_guidance", "src", "prompt_train"]
+        in_dir = any([d in p for d in dirs])
+        return is_py and in_dir
+
+    log_code = wandb.run.log_code(
+        root="../",
+        include_fn=code_to_include,
+    )
+    wandb.log_artifact(log_code, type="code")
 
     device = torch.device(cfg.device)
     model, image_processor, tokenizer = create_model_and_transforms_w_prompt(
@@ -104,8 +113,25 @@ def main_train(cfg: DictConfig) -> None:
 
     optimizer = optim.Adam(params_to_optimize, lr=cfg.lr)
 
-    train_loader, train_dataset = get_train_data_loader(cfg)
-    eval_loader = get_val_data_loader(cfg)
+    train_loader, train_dataset = get_train_data_loader(cfg.train_dataset, cfg.batch_size, cfg.train_dataset.num_workers)
+
+    if cfg.evaluate_dataset.name == "group":
+        eval_loader = []
+        for eval_dataset in cfg.evaluate_dataset.datasets:
+            if cfg.eval_novel_classes:
+                eval_loader.append(
+                    get_val_data_loader(eval_dataset.novel, cfg.batch_size, eval_dataset.num_workers))
+            else:
+                eval_loader.append(
+                    get_val_data_loader(eval_dataset.base, cfg.batch_size, eval_dataset.num_workers)
+                )
+    else:
+        if cfg.eval_novel_classes:
+            eval_loader = get_val_data_loader(cfg.evaluate_dataset.novel, cfg.batch_size,
+                                              cfg.evaluate_dataset.num_workers)
+        else:
+            eval_loader = get_val_data_loader(cfg.evaluate_dataset.base, cfg.batch_size,
+                                              cfg.evaluate_dataset.num_workers)
 
     best_accuracy = 0
     patience = 0
@@ -139,6 +165,7 @@ def main_train(cfg: DictConfig) -> None:
         else:
             query_set = get_query_set(train_dataset, len(train_dataset))
 
+    accuracy_record = {}
     for epoch in trange(epochs, desc="Epochs"):
         model.train()
         tbar = tqdm(train_loader, leave=False)
@@ -224,75 +251,114 @@ def main_train(cfg: DictConfig) -> None:
             })
 
         if (epoch + 1) % eval_period == 0:
-            accuracy = eval(
-                model,
-                eval_loader,
-                device,
-                tokenizer,
-                cfg.evaluation_mode,
-                cfg=cfg,
-                train_dataset=train_dataset,
-                image_processor=image_processor,
-            )
+            if type(eval_loader) == list:
+                ckpt_dir = f"{exp_dir}/epoch_{epoch}"
+                os.makedirs(ckpt_dir)
+                soft_prompt_text = model.soft_prompt_text.detach()
+                soft_prompt_media = model.soft_prompt_media.detach()
+                torch.save(soft_prompt_media, f"{ckpt_dir}/soft_prompt_media.pt")
+                torch.save(soft_prompt_text, f"{ckpt_dir}/soft_prompt_text.pt")
 
-            ckpt_dir = f"{exp_dir}/epoch_{epoch}_accuracy_{accuracy}"
-            os.makedirs(ckpt_dir)
-            soft_prompt_text = model.soft_prompt_text.detach()
-            soft_prompt_media = model.soft_prompt_media.detach()
-            torch.save(soft_prompt_media, f"{ckpt_dir}/soft_prompt_media.pt")
-            torch.save(soft_prompt_text, f"{ckpt_dir}/soft_prompt_text.pt")
+                for i, loader in enumerate(eval_loader):
+                    dataset_name = cfg.evaluate_dataset.datasets[i].name
+                    accuracy = eval(
+                        model,
+                        loader,
+                        device,
+                        tokenizer,
+                        cfg.evaluation_mode,
+                        cfg=cfg,
+                        train_dataset=None,
+                        image_processor=image_processor,
+                    )
+                    logger.info(f"Epoch {epoch} accuracy on {dataset_name}: {accuracy}")
+                    wandb.log({
+                        f"eval/accuracy_{dataset_name}": accuracy,
+                    })
+                    if accuracy_record.get(epoch):
+                        accuracy_record[epoch].update({dataset_name: accuracy})
+                    else:
+                        accuracy_record[epoch] = {dataset_name: accuracy}
+                wandb.log({
+                    "eval/epoch": epoch,
+                })
 
-            if accuracy > best_accuracy:
-                best_accuracy = accuracy
-                best_dir = ckpt_dir
-                patience = 0
-                logger.info(
-                    f"New best accuracy: {accuracy} at epoch {epoch}; saving to {best_dir}"
-                )
             else:
-                patience += 1
-            if patience >= patience_max:
-                logger.info(
-                    f"Patience reached at epoch {epoch} with best accuracy {best_accuracy}. Exiting training."
+                # only evaluate on one dataset
+                dataset_name = cfg.evaluate_dataset.name
+                accuracy = eval(
+                    model,
+                    eval_loader,
+                    device,
+                    tokenizer,
+                    cfg.evaluation_mode,
+                    cfg=cfg,
+                    train_dataset=train_dataset,
+                    image_processor=image_processor,
                 )
-                break
 
-            logger.info(f"Epoch {epoch} accuracy: {accuracy}")
-            with open(f"{exp_dir}/accuracy.txt", "a") as f:
-                f.write(f"Epoch {epoch} accuracy: {accuracy}\n")
+                ckpt_dir = f"{exp_dir}/epoch_{epoch}_accuracy_{accuracy}"
+                os.makedirs(ckpt_dir)
+                soft_prompt_text = model.soft_prompt_text.detach()
+                soft_prompt_media = model.soft_prompt_media.detach()
+                torch.save(soft_prompt_media, f"{ckpt_dir}/soft_prompt_media.pt")
+                torch.save(soft_prompt_text, f"{ckpt_dir}/soft_prompt_text.pt")
 
-            wandb.log({
-                "eval/accuracy": accuracy,
-                "eval/epoch": epoch,
-            })
+                if accuracy > best_accuracy:
+                    best_accuracy = accuracy
+                    best_dir = ckpt_dir
+                    patience = 0
+                    logger.info(
+                        f"New best accuracy: {accuracy} at epoch {epoch}; saving to {best_dir}"
+                    )
+                else:
+                    patience += 1
+                if patience >= patience_max:
+                    logger.info(
+                        f"Patience reached at epoch {epoch} with best accuracy {best_accuracy}. Exiting training."
+                    )
+                    break
 
-    logger.info(f"Best accuracy: {best_accuracy}; saved to {best_dir}")
-    wandb.run.summary["best_accuracy"] = best_accuracy
-    wandb.run.summary["best_dir"] = best_dir
+                logger.info(f"Epoch {epoch} accuracy: {accuracy}")
+                accuracy_record[epoch] = accuracy
+                wandb.log({
+                    "eval/accuracy": accuracy,
+                    "eval/epoch": epoch,
+                })
 
-def get_train_data_loader(cfg):
+    if type(eval_loader) == list:
+        wandb.run.summary["accuracy_record"] = accuracy_record
+        wandb.run.summary["dir"] = exp_dir
+        with open(f"{exp_dir}/accuracy.txt", "w") as f:
+            f.write(json.dumps(accuracy_record, indent=4))
+    else:
+        with open(f"{exp_dir}/accuracy.txt", "w") as f:
+            f.write(json.dumps(accuracy_record, indent=4))
+        logger.info(f"Best accuracy: {best_accuracy}; saved to {best_dir}")
+        wandb.run.summary["best_accuracy"] = best_accuracy
+        wandb.run.summary["best_dir"] = best_dir
+
+def get_train_data_loader(training_dataset, batch_size, num_workers):
     train_dataset = ImageNet1KDataset(
-        image_dir_path=cfg.train_dataset.image_dir,
-        annotations_path=cfg.train_dataset.annotation_path,
+        image_dir_path=training_dataset.image_dir,
+        annotations_path=training_dataset.annotation_path,
     )
-    batch_size = cfg.batch_size if not cfg.debug.value else cfg.debug.batch_size
-    train_loader = prepare_loader(train_dataset, batch_size, num_workers=cfg.train_dataset.num_workers)
+    train_loader = prepare_loader(train_dataset, batch_size, num_workers=training_dataset.num_workers)
     return train_loader, train_dataset
 
 
-def get_val_data_loader(cfg):
-    if cfg.eval_novel_classes:
-        eval_dataset = ImageNet1KDataset(
-            image_dir_path=cfg.evaluate_dataset.novel.image_dir_path,
-            annotations_path=cfg.evaluate_dataset.novel.annotation_path,
-        )
-    else:
-        eval_dataset = ImageNet1KDataset(
-            image_dir_path=cfg.evaluate_dataset.base.image_dir_path,
-            annotations_path=cfg.evaluate_dataset.base.annotation_path,
-        )
-    batch_size = cfg.batch_size if not cfg.debug.value else cfg.debug.batch_size
-    eval_loader = prepare_loader(eval_dataset, batch_size, num_workers=cfg.evaluate_dataset.num_workers)
+def get_val_data_loader(evaluate_dataset, batch_size, num_workers):
+    # if cfg.eval_novel_classes:
+    #     eval_dataset = ImageNet1KDataset(
+    #         image_dir_path=cfg.evaluate_dataset.novel.image_dir_path,
+    #         annotations_path=cfg.evaluate_dataset.novel.annotation_path,
+    #     )
+    # else:
+    eval_dataset = ImageNet1KDataset(
+        image_dir_path=evaluate_dataset.image_dir_path,
+        annotations_path=evaluate_dataset.annotation_path,
+    )
+    eval_loader = prepare_loader(eval_dataset, batch_size, num_workers=num_workers)
     return eval_loader
 
 
