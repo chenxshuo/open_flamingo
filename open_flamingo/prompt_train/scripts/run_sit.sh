@@ -35,3 +35,7 @@ done
 } &
 
 wait
+
+
+
+bash scripts/run_eval_one.sh imagenet-r 8 True True ./experiments/model_OF-9B/evaluate_dataset_imagenet-1k/classes_8/use_robust_prompting_True/media_prompts_8/text_prompts_per_media_3/2024-06-07_05-35-27/epoch_19_accuracy_0.99
