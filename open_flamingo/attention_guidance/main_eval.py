@@ -8,6 +8,7 @@ from omegaconf import DictConfig, OmegaConf, open_dict
 from hydra.core.hydra_config import HydraConfig
 from utils import get_id_func, prepare_one_training_batch, prepare_one_eval_batch
 import argparse
+import wandb
 import logging
 import huggingface_hub
 import os
@@ -45,17 +46,15 @@ OmegaConf.register_new_resolver("generate_job_id", get_id_func())
 def main_eval(cfg: DictConfig) -> None:
     # Set randomness
     if cfg.seed:
+        random.seed(cfg.seed)
         np.random.seed(cfg.seed)
         torch.manual_seed(cfg.seed)
         torch.cuda.manual_seed(cfg.seed)
         torch.cuda.manual_seed_all(cfg.seed)
+        os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
+        torch.use_deterministic_algorithms(True)
         torch.backends.cudnn.deterministic = True
         torch.backends.cudnn.benchmark = False
-
-    logger.info(f"Config:\n{OmegaConf.to_yaml(cfg)}")
-    exp_dir = HydraConfig.get().run.dir
-    logger.info(f"Exp Dir: {exp_dir}")
-    device = torch.device(cfg.device)
 
     with open_dict(cfg):
         cfg.update({
@@ -64,6 +63,36 @@ def main_eval(cfg: DictConfig) -> None:
             "number_of_media_prompts": cfg.load_from.number_of_media_prompts,
             "robust_prompting": cfg.load_from.robust_prompting,
         })
+    device = torch.device(cfg.device)
+
+    exp_dir = HydraConfig.get().run.dir
+    exp_id = exp_dir.split("/")[-1]
+    exp_name = "-".join(exp_id.split("-")[-2:])
+
+    run = wandb.init(
+        project=cfg.wandb.project,
+        name=exp_name,
+        id=exp_id,
+        save_code=True,
+        dir=exp_dir,
+        config=OmegaConf.to_container(cfg, resolve=True, throw_on_missing=True),
+        tags=["eval"],
+    )
+
+    def code_to_include(p):
+        is_py = p.endswith(".py")
+        dirs = ["attention_guidance", "src", "prompt_train"]
+        in_dir = any([d in p for d in dirs])
+        return is_py and in_dir
+
+    log_code = wandb.run.log_code(
+        root="../",
+        include_fn=code_to_include,
+    )
+    wandb.log_artifact(log_code, type="code")
+
+    logger.info(f"Config:\n{OmegaConf.to_yaml(cfg)}")
+    logger.info(f"Exp Dir: {exp_dir}")
 
     model, image_processor, tokenizer = create_model_and_transforms_w_prompt(
         number_of_text_prompts=cfg.number_of_text_prompts_per_media * cfg.number_of_media_prompts,
@@ -123,6 +152,9 @@ def main_eval(cfg: DictConfig) -> None:
                 logger.info(f"Accuracy: {accuracy} on {dataset_name}; loaded pts from {cfg.load_from.dir}")
                 with open(f"{exp_dir}/accuracy_{dataset_name}.txt", "w") as f:
                     f.write(f"Accuracy: {accuracy}")
+                wandb.log({
+                    f"eval/accuracy_{dataset_name}": accuracy,
+                })
         else:
             dataset_name = cfg.evaluate_dataset.name
             accuracy = eval(
@@ -138,10 +170,16 @@ def main_eval(cfg: DictConfig) -> None:
             logger.info(f"Accuracy: {accuracy} on {dataset_name}; loaded pts from {cfg.load_from.dir}")
             with open(f"{exp_dir}/accuracy_{dataset_name}.txt", "w") as f:
                 f.write(f"Accuracy: {accuracy}")
+            wandb.log({
+                f"eval/accuracy_{dataset_name}": accuracy,
+            })
     else:
         logger.info(f"Iterate over dirs inside {cfg.load_from.dir} to evaluate")
         accuracy_record = {}
-        for d in os.listdir(cfg.load_from.dir):
+        listdir = os.listdir(cfg.load_from.dir)
+        listdir = list(filter(lambda x: "epoch" in x , listdir))
+        listdir.sort(key=lambda x: int(x.split("_")[1])) # sort by epoch
+        for d in listdir:
             if os.path.exists(f"{cfg.load_from.dir}/{d}/soft_prompt_media.pt") and os.path.exists(f"{cfg.load_from.dir}/{d}/soft_prompt_text.pt"):
                 logger.info(f"Loading pts from {cfg.load_from.dir}/{d}")
                 model.soft_prompt_media = torch.load(f"{cfg.load_from.dir}/{d}/soft_prompt_media.pt")
@@ -164,6 +202,13 @@ def main_eval(cfg: DictConfig) -> None:
                             accuracy_record[d].update({dataset_name: accuracy})
                         else:
                             accuracy_record[d] = {dataset_name: accuracy}
+
+                        wandb.log({
+                            f"eval/accuracy_{dataset_name}": accuracy,
+                        })
+                    wandb.log({
+                        f"eval/load_from_epoch": int(d.split("_")[1]),
+                    })
                 else:
                     dataset_name = cfg.evaluate_dataset.name
                     accuracy = eval(
@@ -177,6 +222,10 @@ def main_eval(cfg: DictConfig) -> None:
                         image_processor=image_processor,
                     )
                     logger.info(f"Accuracy: {accuracy}; loaded pts from {cfg.load_from.dir}/{d}")
+                    wandb.log({
+                        f"eval/accuracy_{dataset_name}": accuracy,
+                        f"eval/load_from_epoch": int(d.split("_")[1]),
+                    })
                     if accuracy_record.get(d):
                         accuracy_record[d].update({dataset_name: accuracy})
                     else:
@@ -196,7 +245,8 @@ def main_eval(cfg: DictConfig) -> None:
             # max_accuracy_dir = max(accuracy_record, key=accuracy_record.get)
             # logger.info(f"Max accuracy: {max_accuracy} in {max_accuracy_dir}")
             # logger.info(f"Exp dir: {exp_dir}")
-
+    wandb.run.summary["exp_dir"] = exp_dir
+    wandb.finish()
 
 def get_val_data_loader(evaluate_dataset, batch_size, num_workers):
     # if cfg.eval_novel_classes:

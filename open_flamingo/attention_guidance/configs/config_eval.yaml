@@ -24,7 +24,7 @@ batch_size: 32
 eval_novel_classes: True
 evaluation_mode: classification # or 'generation'
 only_load_and_eval: True
-seed: 42
+seed: 52
 
 icl:
   do_icl: False
@@ -36,3 +36,5 @@ icl:
     rices_vision_encoder_pretrained: openai
     rices_find_by_ranking_similar_text_similar_in_top_k: 200
 
+wandb:
+  project: robust_prompting

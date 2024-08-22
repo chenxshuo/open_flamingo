@@ -22,8 +22,8 @@ device: cuda:1
 number_of_classes: 8
 number_of_media_prompts: 8
 number_of_text_prompts_per_media: 3
-epochs: 50
-seed: 52
+epochs: 100
+seed: 42
 eval_period: 2
 
 debug:

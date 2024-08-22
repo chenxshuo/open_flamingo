@@ -59,9 +59,8 @@ def main_train(cfg: DictConfig) -> None:
         torch.backends.cudnn.deterministic = True
         torch.backends.cudnn.benchmark = False
 
-    logger.info(f"Config:\n{OmegaConf.to_yaml(cfg)}")
+
     exp_dir = HydraConfig.get().run.dir
-    logger.info(f"Exp Dir: {exp_dir}")
     exp_id = exp_dir.split("/")[-1]
     exp_name = "-".join(exp_id.split("-")[-2:])
 
@@ -72,6 +71,7 @@ def main_train(cfg: DictConfig) -> None:
         save_code=True,
         dir=exp_dir,
         config=OmegaConf.to_container(cfg, resolve=True, throw_on_missing=True),
+        tags=["train"],
     )
 
     def code_to_include(p):
@@ -85,6 +85,8 @@ def main_train(cfg: DictConfig) -> None:
         include_fn=code_to_include,
     )
     wandb.log_artifact(log_code, type="code")
+    logger.info(f"Config:\n{OmegaConf.to_yaml(cfg)}")
+    logger.info(f"Exp Dir: {exp_dir}")
 
     device = torch.device(cfg.device)
     model, image_processor, tokenizer = create_model_and_transforms_w_prompt(
@@ -327,7 +329,7 @@ def main_train(cfg: DictConfig) -> None:
                 })
 
     if type(eval_loader) == list:
-        wandb.run.summary["accuracy_record"] = accuracy_record
+        wandb.run.summary["accuracy_record"] = json.dumps(accuracy_record)
         wandb.run.summary["dir"] = exp_dir
         with open(f"{exp_dir}/accuracy.txt", "w") as f:
             f.write(json.dumps(accuracy_record, indent=4))
@@ -337,6 +339,9 @@ def main_train(cfg: DictConfig) -> None:
         logger.info(f"Best accuracy: {best_accuracy}; saved to {best_dir}")
         wandb.run.summary["best_accuracy"] = best_accuracy
         wandb.run.summary["best_dir"] = best_dir
+
+    wandb.run.summary["exp_dir"] = exp_dir
+    wandb.finish()
 
 def get_train_data_loader(training_dataset, batch_size, num_workers):
     train_dataset = ImageNet1KDataset(
