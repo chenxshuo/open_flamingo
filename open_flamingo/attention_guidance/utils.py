@@ -291,7 +291,7 @@ def get_sit_vision_tensor(image, image_processor):
     return vision_x
 
 def get_sit2_vision_tensor(image, image_processor):
-    # no original img + 3 transformed img
+    # no original img + 4 transformed img
     from open_flamingo.prompt_train.sit.sit_transform import blocktransform
     vision_x = []
     # vision_x.append(image_processor(image).unsqueeze(0))

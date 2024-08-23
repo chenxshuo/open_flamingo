@@ -1,6 +1,6 @@
 defaults:
   - model: of-9b
-  - robust_prompting: robust-sit2
+  - robust_prompting: robust-sit
 #  - robust_prompting: no-robust
 #  - robust_prompting: robust-scales
   - evaluate_dataset: group
@@ -18,7 +18,7 @@ hydra:
         filename: ${hydra.run.dir}/log.log
 
 batch_size: 16
-device: cuda:1
+device: cuda:0
 number_of_classes: 8
 number_of_media_prompts: 8
 number_of_text_prompts_per_media: 3
@@ -47,6 +47,7 @@ evaluation_mode: classification # or 'generation'
 wandb:
   project: robust_prompting
 
+notes: "debug: robust sit, with original image put to the last, aug feat in the middle"
 
 icl:
   do_icl: False

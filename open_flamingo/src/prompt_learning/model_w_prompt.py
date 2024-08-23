@@ -62,6 +62,7 @@ class FlamingoSoftPrompt(Flamingo):
         hide_demo_media_embs: bool = False,
         hide_query_media_embs: bool = False,
         use_robust_prompting: bool = False,
+        robust_prompting_at_last: bool = False,
         number_of_robust_media: int = -1,
         device = None,
         tokenizer=None,
@@ -103,6 +104,8 @@ class FlamingoSoftPrompt(Flamingo):
 
         self.use_robust_prompting = use_robust_prompting
         self.number_of_robust_media = number_of_robust_media
+
+        self.robust_prompting_at_last = robust_prompting_at_last
 
         self.device = device
         self.tokenizer = tokenizer
@@ -229,30 +232,51 @@ class FlamingoSoftPrompt(Flamingo):
         # logger.debug(f"vision_x shape: {vision_x.shape}")
         # logger.debug(f"self.soft_prompt_media shape: {self.soft_prompt_media.shape}")
 
-        soft_repeat = repeat(self.soft_prompt_media, "1 m p d -> (1 n) m p d", n=b).to(vision_x.device)
-        if self.do_icl:
-            # concatenate demo + soft + query
-            if self.icl_insertion_position == "demo-prompting-query":
-                vision_x = torch.cat(
-                    [vision_x[:, :self.num_shots], soft_repeat, vision_x[:, self.num_shots:]],
-                    dim = 1,
-                )
-            elif self.icl_insertion_position == "prompting-demo-query":
+        if not self.use_robust_prompting or self.robust_prompting_at_last:
+            soft_repeat = repeat(self.soft_prompt_media, "1 m p d -> (1 n) m p d", n=b).to(vision_x.device)
+            if self.do_icl:
+                # concatenate demo + soft + query
+                if self.icl_insertion_position == "demo-prompting-query":
+                    vision_x = torch.cat(
+                        [vision_x[:, :self.num_shots], soft_repeat, vision_x[:, self.num_shots:]],
+                        dim = 1,
+                    )
+                elif self.icl_insertion_position == "prompting-demo-query":
+                    vision_x = torch.cat(
+                        [soft_repeat, vision_x],
+                        dim = 1,
+                    )
+            else:
                 vision_x = torch.cat(
                     [soft_repeat, vision_x],
-                    dim = 1,
+                    dim=1
                 )
         else:
+            # robust prompting and put aug features in the middle
+            # vision_x: [batch, 1 ori query +#aug query , 64, 1024]
+            # self.soft_prompt_media: [batch, m soft prompt, 64, 1024]
+            # concatenate and replace -> [batch, (m-#aug) + #aug + 1, 64, 1024]
+            # import ipdb; ipdb.set_trace()
+            soft_repeat = repeat(self.soft_prompt_media, "1 m p d -> (1 n) m p d", n=b).to(vision_x.device)
+            assert vision_x.shape[1] - 1 <=soft_repeat.shape[1], ("soft prompt should be more than the aug query features,"
+                                                                 "but got {vision_x.shape[1] -1} > {soft_repeat.shape[1]}")
+            original_query = vision_x[:, 0, :, :] # by default, the original image feature is the first one
+            original_query.unsqueeze_(1)
+            aug_query = vision_x[:, 1:, :, :]
+            soft_repeat[:, :aug_query.shape[1], :, :] = aug_query
             vision_x = torch.cat(
-                [soft_repeat, vision_x],
+                [soft_repeat, original_query],
                 dim=1
             )
+
+
         # logger.debug(f"vision_x shape after concatenation: {vision_x.shape}")
         for layer in self.lang_encoder._get_decoder_layers():
             layer.condition_vis_x(vision_x)
             if T > 1 and self.use_robust_prompting:
                 layer.set_use_robust_prompting(use_robust_prompt=True)
                 layer.set_number_of_robust_media(number_of_robust_media=T)
+                layer.set_robust_prompting_at_last(self.robust_prompting_at_last)
 
 
     def _condition_media_locations(self, input_ids: torch.Tensor):

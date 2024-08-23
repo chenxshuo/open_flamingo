@@ -72,6 +72,7 @@ def main_train(cfg: DictConfig) -> None:
         dir=exp_dir,
         config=OmegaConf.to_container(cfg, resolve=True, throw_on_missing=True),
         tags=["train"],
+        notes=cfg.notes,
     )
 
     def code_to_include(p):
@@ -98,6 +99,7 @@ def main_train(cfg: DictConfig) -> None:
         tokenizer_path=cfg.model.language,
         cross_attn_every_n_layers=cfg.model.cross_attn_every_n_layers,
         use_robust_prompting=cfg.robust_prompting.use_robust_prompting,
+        robust_prompting_at_last=cfg.robust_prompting.robust_prompting_at_last,
         number_of_robust_media=cfg.robust_prompting.number_of_robust_prompts,
         device=device,
         do_icl=cfg.icl.do_icl,

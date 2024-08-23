@@ -184,6 +184,15 @@ class MaskedCrossAttention(nn.Module):
         self.use_robust_prompting = False
         self.number_of_robust_media = None # number of extra query media, default 3 if needed for robust prompting
 
+        """
+        my previous implementation of robust prompting is to put the aug rob features of the query image 
+        at the end of the input features and adjust the attention mask to let the query token see the aug features.
+        """
+        self.robust_prompting_at_last = False
+
+    def set_robust_prompting_at_last(self, robust_prompting_at_last):
+        self.robust_prompting_at_last = robust_prompting_at_last
+
     def set_use_robust_prompting(self, use_robust_prompting):
         self.use_robust_prompting = use_robust_prompting
 
@@ -288,7 +297,7 @@ class MaskedCrossAttention(nn.Module):
                 repeat(media_time, "j -> 1 1 1 (j n)", n=n), # shape (1, 2) -> shape (1, 1, 1, 2*64)
             )
             # logger.debug(f"text_to_media_mask shape {text_to_media_mask.shape}, text_to_media_mask is {text_to_media_mask}")
-            if self.use_robust_prompting:
+            if self.use_robust_prompting and self.robust_prompting_at_last:
                 assert self.number_of_robust_media is not None
                 # text_to_media_mask[:][:][torch.eq(text_time, torch.max(text_time, dim=1)[0])][(torch.max(media_time) - self.number_of_robust_media)*n:] = True
                 text_col_mask = text_time == text_time.max(dim=1)[0].reshape(-1, 1)
@@ -369,6 +378,9 @@ class GatedCrossAttentionBlock(nn.Module):
 
         self.attn_output = []
 
+
+    def set_robust_prompting_at_last(self, robust_prompting_at_last):
+        self.attn.set_robust_prompting_at_last(robust_prompting_at_last)
 
     def set_use_robust_prompting(self, use_robust_prompting):
         self.attn.set_use_robust_prompting(use_robust_prompting)

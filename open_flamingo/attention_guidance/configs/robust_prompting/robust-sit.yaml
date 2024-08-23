@@ -1,3 +1,4 @@
 use_robust_prompting: True
 plan: sit
 number_of_robust_prompts: 4
+robust_prompting_at_last: False

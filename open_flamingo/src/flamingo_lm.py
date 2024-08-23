@@ -64,6 +64,10 @@ class FlamingoLayer(nn.Module):
             self.gated_cross_attn_layer.set_use_robust_prompting(use_robust_prompt)
 
 
+    def set_robust_prompting_at_last(self, robust_prompting_at_last):
+        if self.gated_cross_attn_layer is not None:
+            self.gated_cross_attn_layer.set_robust_prompting_at_last(robust_prompting_at_last)
+
     def set_number_of_robust_media(self, number_of_robust_media):
         if self.gated_cross_attn_layer is not None:
             self.gated_cross_attn_layer.set_number_of_robust_media(number_of_robust_media)
