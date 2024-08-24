@@ -104,6 +104,7 @@ def main_eval(cfg: DictConfig) -> None:
         cross_attn_every_n_layers=cfg.model.cross_attn_every_n_layers,
         use_robust_prompting=cfg.robust_prompting.use_robust_prompting,
         number_of_robust_media=cfg.robust_prompting.number_of_robust_prompts,
+        robust_prompting_at_last=cfg.robust_prompting.robust_prompting_at_last,
         device=device,
         do_icl=cfg.icl.do_icl,
         num_shots=cfg.icl.num_shots,
