@@ -298,6 +298,7 @@ class MaskedCrossAttention(nn.Module):
             )
             # logger.debug(f"text_to_media_mask shape {text_to_media_mask.shape}, text_to_media_mask is {text_to_media_mask}")
             if self.use_robust_prompting and self.robust_prompting_at_last:
+                # logger.critical(f"Use robust prompting at last")
                 assert self.number_of_robust_media is not None
                 # text_to_media_mask[:][:][torch.eq(text_time, torch.max(text_time, dim=1)[0])][(torch.max(media_time) - self.number_of_robust_media)*n:] = True
                 text_col_mask = text_time == text_time.max(dim=1)[0].reshape(-1, 1)
