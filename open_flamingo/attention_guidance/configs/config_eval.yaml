@@ -1,9 +1,9 @@
 defaults:
   - model: of-9b
-  - evaluate_dataset: group
+  - evaluate_dataset: imagenet-c #group
 #  - load_from: baseline-class-32-m4-t3
 #  - load_from: baseline-class-8-m8-t3
-  - load_from: robust-sit2
+  - load_from: robust-five-crop
   - override hydra/job_logging: custom
   - override hydra/hydra_logging: colorlog
   - _self_
@@ -19,9 +19,17 @@ hydra:
 
 data_base: /dss/dssmcmlfs01/pn34sa/pn34sa-dss-0000/robustness/datasets
 
+guide_attention:
+  value: True
+  factor: 1.3
+  head_ind:
+    - 0
+    - 1
+    - 2
+    - 3
 device: cuda:0
 batch_size: 32
-eval_novel_classes: True
+eval_novel_classes: False
 evaluation_mode: classification # or 'generation'
 only_load_and_eval: True
 seed: 52
@@ -38,3 +46,5 @@ icl:
 
 wandb:
   project: robust_prompting
+
+notes: "evaluate on base to see the performance of the model"

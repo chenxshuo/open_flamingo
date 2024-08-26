@@ -190,6 +190,21 @@ class MaskedCrossAttention(nn.Module):
         """
         self.robust_prompting_at_last = False
 
+        self.guide_attention = False
+        self.attention_amplify_factor = 1.3
+        self.guide_head_index = [0, 1, 2, 3]  # 4 heads
+
+    def set_guide_attention(self, guide_attention, attention_amplify_factor, guide_head_index):
+        self.guide_attention = guide_attention
+        self.attention_amplify_factor = attention_amplify_factor
+        self.guide_head_index = guide_head_index
+
+    def set_attention_amplify_factor(self, attention_amplify_factor):
+        self.attention_amplify_factor = attention_amplify_factor
+
+    def set_guide_head_index(self, guide_head_index):
+        self.guide_head_index = guide_head_index
+
     def set_robust_prompting_at_last(self, robust_prompting_at_last):
         self.robust_prompting_at_last = robust_prompting_at_last
 
@@ -310,25 +325,24 @@ class MaskedCrossAttention(nn.Module):
 
                     # try out attention guidance
                     # import ipdb; ipdb.set_trace()
-                    ATTENTION_GUIDANCE_FLAG = False
-                    if ATTENTION_GUIDANCE_FLAG:
-                        amplify = 1.3
+                    # ATTENTION_GUIDANCE_FLAG = False
+                    if self.guide_attention:
+                        amplify = self.attention_amplify_factor
                         rob_start_ind = (torch.max(media_time) - (self.number_of_robust_media-1)) * n # the 1st is the original image, only amplify the rest
                         sim[:, :, :, rob_start_ind:] = sim[:, :, :, rob_start_ind:] * amplify
                 else:
                     # logger.critical(f"Robust augs are not at last")
                     assert self.number_of_robust_media is not None
-
-                    ATTENTION_GUIDANCE_FLAG = True
-                    if ATTENTION_GUIDANCE_FLAG:
+                    if self.guide_attention:
                         # import ipdb; ipdb.set_trace()
+                        amplify = self.attention_amplify_factor
+                        head_index = self.guide_head_index
+
                         number_of_aug = self.number_of_robust_media - 1  # TODO
                         total_media_token_num = sim.shape[-1]
                         total_media_num = total_media_token_num // n
-                        amplify = 1.3
                         rob_start_ind = (total_media_num - number_of_aug - 1) * n
                         rob_end_ind = total_media_token_num - n
-                        head_index = [0,1,2,3] # 4 heads
                         sim[:, head_index, :, rob_start_ind:rob_end_ind] = sim[:, head_index, :, rob_start_ind:rob_end_ind] * amplify
 
 
@@ -396,6 +410,8 @@ class GatedCrossAttentionBlock(nn.Module):
 
         self.attn_output = []
 
+    def set_guide_attention(self, guide_attention, attention_amplify_factor, guide_head_index):
+        self.attn.set_guide_attention(guide_attention, attention_amplify_factor, guide_head_index)
 
     def set_robust_prompting_at_last(self, robust_prompting_at_last):
         self.attn.set_robust_prompting_at_last(robust_prompting_at_last)

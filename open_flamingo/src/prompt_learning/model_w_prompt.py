@@ -63,6 +63,9 @@ class FlamingoSoftPrompt(Flamingo):
         hide_query_media_embs: bool = False,
         use_robust_prompting: bool = False,
         robust_prompting_at_last: bool = False,
+        guide_attention: bool = False,
+        attention_amplify_factor: float = 1.0,
+        guide_head_index: list = [],
         number_of_robust_media: int = -1,
         device = None,
         tokenizer=None,
@@ -106,6 +109,10 @@ class FlamingoSoftPrompt(Flamingo):
         self.number_of_robust_media = number_of_robust_media
 
         self.robust_prompting_at_last = robust_prompting_at_last
+
+        self.guide_attention = guide_attention
+        self.attention_amplify_factor = attention_amplify_factor
+        self.guide_head_index = guide_head_index
 
         self.device = device
         self.tokenizer = tokenizer
@@ -279,6 +286,7 @@ class FlamingoSoftPrompt(Flamingo):
                 layer.set_use_robust_prompting(use_robust_prompt=True)
                 layer.set_number_of_robust_media(number_of_robust_media=T)
                 layer.set_robust_prompting_at_last(self.robust_prompting_at_last)
+                layer.set_guide_attention(self.guide_attention, self.attention_amplify_factor, self.guide_head_index)
 
 
     def _condition_media_locations(self, input_ids: torch.Tensor):
