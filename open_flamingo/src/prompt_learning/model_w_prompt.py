@@ -189,7 +189,8 @@ class FlamingoSoftPrompt(Flamingo):
         if self.use_robust_prompting:
             assert T > 1
             if not self.do_icl:
-                assert T == self.number_of_robust_media, f"Expecting {self.number_of_robust_media} robust media"
+                #  1 query + T-1 robust media
+                assert T - 1 == self.number_of_robust_media, f"Expecting {self.number_of_robust_media} robust media but got {T-1}"
             else:
                 assert T == (self.number_of_robust_media + self.num_shots), f"Expecting {self.number_of_robust_media + self.num_shots} media but got {T} media"
 
@@ -257,15 +258,16 @@ class FlamingoSoftPrompt(Flamingo):
             # self.soft_prompt_media: [batch, m soft prompt, 64, 1024]
             # concatenate and replace -> [batch, (m-#aug) + #aug + 1, 64, 1024]
             # import ipdb; ipdb.set_trace()
+            # import ipdb; ipdb.set_trace()
             soft_repeat = repeat(self.soft_prompt_media, "1 m p d -> (1 n) m p d", n=b).to(vision_x.device)
-            assert vision_x.shape[1] - 1 <=soft_repeat.shape[1], ("soft prompt should be more than the aug query features,"
-                                                                 "but got {vision_x.shape[1] -1} > {soft_repeat.shape[1]}")
+            # assert vision_x.shape[1] - 1 <=soft_repeat.shape[1], ("soft prompt should be more than the aug query features,"
+            #                                                      "but got {vision_x.shape[1] -1} > {soft_repeat.shape[1]}")
+
             original_query = vision_x[:, 0, :, :] # by default, the original image feature is the first one
             original_query.unsqueeze_(1)
             aug_query = vision_x[:, 1:, :, :]
-            soft_repeat[:, :aug_query.shape[1], :, :] = aug_query
             vision_x = torch.cat(
-                [soft_repeat, original_query],
+                [soft_repeat, aug_query, original_query],
                 dim=1
             )
 
@@ -290,8 +292,12 @@ class FlamingoSoftPrompt(Flamingo):
         prompt_media_locations = input_ids == self.prompt_media_id
         media_locations = media_locations | prompt_media_locations
 
-        assert (torch.sum(input_ids == self.prompt_media_id).item()) / input_ids.shape[
-            0] == self.number_of_media_prompts, f"Expecting {self.number_of_media_prompts} media prompts"
+        if self.use_robust_prompting and not self.robust_prompting_at_last:
+            assert (torch.sum(input_ids == self.prompt_media_id).item()) / input_ids.shape[
+                0] == self.number_of_media_prompts + self.number_of_robust_media, f"Expecting {self.number_of_media_prompts + self.number_of_robust_media} media prompts"
+        else:
+            assert (torch.sum(input_ids == self.prompt_media_id).item()) / input_ids.shape[
+                0] == self.number_of_media_prompts, f"Expecting {self.number_of_media_prompts} media prompts"
 
         # logger.debug(f"input_ids: {input_ids}")
         # logger.debug(f"input_ids shape {input_ids.shape}")

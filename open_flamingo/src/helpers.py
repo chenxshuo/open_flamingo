@@ -297,23 +297,40 @@ class MaskedCrossAttention(nn.Module):
                 repeat(media_time, "j -> 1 1 1 (j n)", n=n), # shape (1, 2) -> shape (1, 1, 1, 2*64)
             )
             # logger.debug(f"text_to_media_mask shape {text_to_media_mask.shape}, text_to_media_mask is {text_to_media_mask}")
-            if self.use_robust_prompting and self.robust_prompting_at_last:
-                # logger.critical(f"Use robust prompting at last")
-                assert self.number_of_robust_media is not None
-                # text_to_media_mask[:][:][torch.eq(text_time, torch.max(text_time, dim=1)[0])][(torch.max(media_time) - self.number_of_robust_media)*n:] = True
-                text_col_mask = text_time == text_time.max(dim=1)[0].reshape(-1, 1)
-                text_col_mask = rearrange(text_col_mask, "b i -> b 1 i")
-                part = text_to_media_mask[text_col_mask]
-                part[:, (torch.max(media_time) - self.number_of_robust_media)*n:] = True
-                text_to_media_mask[text_col_mask] = part
+            if self.use_robust_prompting:
+                if self.robust_prompting_at_last:
+                    # logger.critical(f"Use robust prompting at last")
+                    assert self.number_of_robust_media is not None
+                    # text_to_media_mask[:][:][torch.eq(text_time, torch.max(text_time, dim=1)[0])][(torch.max(media_time) - self.number_of_robust_media)*n:] = True
+                    text_col_mask = text_time == text_time.max(dim=1)[0].reshape(-1, 1)
+                    text_col_mask = rearrange(text_col_mask, "b i -> b 1 i")
+                    part = text_to_media_mask[text_col_mask]
+                    part[:, (torch.max(media_time) - self.number_of_robust_media)*n:] = True
+                    text_to_media_mask[text_col_mask] = part
 
-                # try out attention guidance
-                # import ipdb; ipdb.set_trace()
-                ATTENTION_GUIDANCE_FLAG = False
-                if ATTENTION_GUIDANCE_FLAG:
-                    amplify = 1.3
-                    rob_start_ind = (torch.max(media_time) - (self.number_of_robust_media-1)) * n # the 1st is the original image, only amplify the rest
-                    sim[:, :, :, rob_start_ind:] = sim[:, :, :, rob_start_ind:] * amplify
+                    # try out attention guidance
+                    # import ipdb; ipdb.set_trace()
+                    ATTENTION_GUIDANCE_FLAG = False
+                    if ATTENTION_GUIDANCE_FLAG:
+                        amplify = 1.3
+                        rob_start_ind = (torch.max(media_time) - (self.number_of_robust_media-1)) * n # the 1st is the original image, only amplify the rest
+                        sim[:, :, :, rob_start_ind:] = sim[:, :, :, rob_start_ind:] * amplify
+                else:
+                    # logger.critical(f"Robust augs are not at last")
+                    assert self.number_of_robust_media is not None
+
+                    ATTENTION_GUIDANCE_FLAG = True
+                    if ATTENTION_GUIDANCE_FLAG:
+                        # import ipdb; ipdb.set_trace()
+                        number_of_aug = self.number_of_robust_media - 1  # TODO
+                        total_media_token_num = sim.shape[-1]
+                        total_media_num = total_media_token_num // n
+                        amplify = 1.3
+                        rob_start_ind = (total_media_num - number_of_aug - 1) * n
+                        rob_end_ind = total_media_token_num - n
+                        head_index = [0,1,2,3] # 4 heads
+                        sim[:, head_index, :, rob_start_ind:rob_end_ind] = sim[:, head_index, :, rob_start_ind:rob_end_ind] * amplify
+
 
             # import ipdb;ipdb.set_trace()
             sim = sim.masked_fill(~text_to_media_mask, -torch.finfo(sim.dtype).max)

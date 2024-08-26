@@ -90,8 +90,14 @@ def main_train(cfg: DictConfig) -> None:
     logger.info(f"Exp Dir: {exp_dir}")
 
     device = torch.device(cfg.device)
+
+    if cfg.robust_prompting.use_robust_prompting and not cfg.robust_prompting.robust_prompting_at_last:
+        number_of_text_prompts = (cfg.number_of_text_prompts_per_media * cfg.number_of_media_prompts +
+                                  cfg.robust_prompting.number_of_robust_prompts* cfg.number_of_media_prompts)
+    else:
+        number_of_text_prompts = cfg.number_of_text_prompts_per_media * cfg.number_of_media_prompts
     model, image_processor, tokenizer = create_model_and_transforms_w_prompt(
-        number_of_text_prompts=cfg.number_of_text_prompts_per_media * cfg.number_of_media_prompts,
+        number_of_text_prompts=number_of_text_prompts,
         number_of_media_prompts=cfg.number_of_media_prompts,
         clip_vision_encoder_path="ViT-L-14",
         clip_vision_encoder_pretrained="openai",
@@ -185,9 +191,13 @@ def main_train(cfg: DictConfig) -> None:
                     batch_demo_samples = sample_batch_demos_from_query_set(
                         query_set, effective_num_shots, len(batch["image"])
                     )
+                if cfg.robust_prompting and cfg.robust_prompting.robust_prompting_at_last:
+                    number_of_media_prompts = cfg.number_of_media_prompts + cfg.robust_prompting.number_of_robust_prompts
+                else:
+                    number_of_media_prompts = cfg.number_of_media_prompts
                 vision_x, lang_x = prepare_one_training_batch(
                     batch,
-                    cfg.number_of_media_prompts,
+                    number_of_media_prompts,
                     cfg.number_of_text_prompts_per_media,
                     tokenizer,
                     image_processor,
@@ -197,9 +207,15 @@ def main_train(cfg: DictConfig) -> None:
                     prompt_fn=prompt_fn,
                 )
             else:
+                if cfg.robust_prompting and not cfg.robust_prompting.robust_prompting_at_last:
+                    number_of_media_prompts = cfg.number_of_media_prompts + cfg.robust_prompting.number_of_robust_prompts
+                    # logger.info(f"Number of media prompts: {number_of_media_prompts} = "
+                    #             f"{cfg.number_of_media_prompts} + {cfg.robust_prompting.number_of_robust_prompts}")
+                else:
+                    number_of_media_prompts = cfg.number_of_media_prompts
                 vision_x, lang_x = prepare_one_training_batch(
                     batch,
-                    cfg.number_of_media_prompts,
+                    number_of_media_prompts,
                     cfg.number_of_text_prompts_per_media,
                     tokenizer,
                     image_processor,
@@ -212,9 +228,9 @@ def main_train(cfg: DictConfig) -> None:
                 lang_input_sha = object2sha1(lang_input.cpu().numpy())
                 img_path_sha = object2sha1(batch["img_path"])
                 vision_x_sha = object2sha1(vision_x.cpu().numpy())
-                logger.critical(f"SHA-1 hash of lang_input: {lang_input_sha}")
-                logger.critical(f"SHA-1 hash of img_path: {img_path_sha}")
-                logger.critical(f"SHA-1 hash of vision_x: {vision_x_sha}")
+                # logger.critical(f"SHA-1 hash of lang_input: {lang_input_sha}")
+                # logger.critical(f"SHA-1 hash of img_path: {img_path_sha}")
+                # logger.critical(f"SHA-1 hash of vision_x: {vision_x_sha}")
 
             vision_x = vision_x.to(device)
             lang_x = lang_x.to(device)
@@ -421,9 +437,15 @@ def eval(
                 )
 
             # logger.debug(f"batch_demo_samples: {batch_demo_samples}")
+            if cfg.robust_prompting and not cfg.robust_prompting.robust_prompting_at_last:
+                number_of_media_prompts = cfg.number_of_media_prompts + cfg.robust_prompting.number_of_robust_prompts
+                # logger.info(f"Number of media prompts: {number_of_media_prompts} = "
+                #             f"{cfg.number_of_media_prompts} + {cfg.robust_prompting.number_of_robust_prompts}")
+            else:
+                number_of_media_prompts = cfg.number_of_media_prompts
             vision_x, lang_x, batch_label = prepare_one_eval_batch(
                 batch,
-                cfg.number_of_media_prompts,
+                number_of_media_prompts,
                 cfg.number_of_text_prompts_per_media,
                 tokenizer,
                 image_processor,
@@ -433,9 +455,15 @@ def eval(
                 prompt_fn=prompt_fn,
             )
         else:
+            if cfg.robust_prompting and not cfg.robust_prompting.robust_prompting_at_last:
+                number_of_media_prompts = cfg.number_of_media_prompts + cfg.robust_prompting.number_of_robust_prompts
+                # logger.info(f"Number of media prompts: {number_of_media_prompts} = "
+                #             f"{cfg.number_of_media_prompts} + {cfg.robust_prompting.number_of_robust_prompts}")
+            else:
+                number_of_media_prompts = cfg.number_of_media_prompts
             vision_x, lang_x, batch_label = prepare_one_eval_batch(
                 batch,
-                cfg.number_of_media_prompts,
+                number_of_media_prompts,
                 cfg.number_of_text_prompts_per_media,
                 tokenizer,
                 image_processor,

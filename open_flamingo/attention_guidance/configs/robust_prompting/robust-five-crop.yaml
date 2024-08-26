@@ -1,8 +1,8 @@
 use_robust_prompting: True
-plan: scales
+plan: five_crop
 robust_scales: #useless for now, hard encoding
   - 224
   - 112
   - 150
-number_of_robust_prompts: 3
+number_of_robust_prompts: 5
 robust_prompting_at_last: False

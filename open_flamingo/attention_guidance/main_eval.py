@@ -77,6 +77,7 @@ def main_eval(cfg: DictConfig) -> None:
         dir=exp_dir,
         config=OmegaConf.to_container(cfg, resolve=True, throw_on_missing=True),
         tags=["eval"],
+        notes=cfg.notes,
     )
 
     def code_to_include(p):
@@ -94,8 +95,13 @@ def main_eval(cfg: DictConfig) -> None:
     logger.info(f"Config:\n{OmegaConf.to_yaml(cfg)}")
     logger.info(f"Exp Dir: {exp_dir}")
 
+    if cfg.robust_prompting.use_robust_prompting and not cfg.robust_prompting.robust_prompting_at_last:
+        number_of_text_prompts = (cfg.number_of_text_prompts_per_media * cfg.number_of_media_prompts +
+                                  cfg.robust_prompting.number_of_robust_prompts* cfg.number_of_media_prompts)
+    else:
+        number_of_text_prompts = cfg.number_of_text_prompts_per_media * cfg.number_of_media_prompts
     model, image_processor, tokenizer = create_model_and_transforms_w_prompt(
-        number_of_text_prompts=cfg.number_of_text_prompts_per_media * cfg.number_of_media_prompts,
+        number_of_text_prompts=number_of_text_prompts,
         number_of_media_prompts=cfg.number_of_media_prompts,
         clip_vision_encoder_path="ViT-L-14",
         clip_vision_encoder_pretrained="openai",
@@ -309,11 +315,14 @@ def eval(
                 batch_demo_samples = sample_batch_demos_from_query_set(
                     query_set, effective_num_shots, len(batch["image"])
                 )
-
+            if cfg.robust_prompting and not cfg.robust_prompting.robust_prompting_at_last:
+                number_of_media_prompts = cfg.number_of_media_prompts + cfg.robust_prompting.number_of_robust_prompts
+            else:
+                number_of_media_prompts = cfg.number_of_media_prompts
             # logger.debug(f"batch_demo_samples: {batch_demo_samples}")
             vision_x, lang_x, batch_label = prepare_one_eval_batch(
                 batch,
-                cfg.number_of_media_prompts,
+                number_of_media_prompts,
                 cfg.number_of_text_prompts_per_media,
                 tokenizer,
                 image_processor,
@@ -323,9 +332,13 @@ def eval(
                 prompt_fn=prompt_fn,
             )
         else:
+            if cfg.robust_prompting and not cfg.robust_prompting.robust_prompting_at_last:
+                number_of_media_prompts = cfg.number_of_media_prompts + cfg.robust_prompting.number_of_robust_prompts
+            else:
+                number_of_media_prompts = cfg.number_of_media_prompts
             vision_x, lang_x, batch_label = prepare_one_eval_batch(
                 batch,
-                cfg.number_of_media_prompts,
+                number_of_media_prompts,
                 cfg.number_of_text_prompts_per_media,
                 tokenizer,
                 image_processor,
